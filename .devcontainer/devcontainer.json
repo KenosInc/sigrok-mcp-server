@@ -1,0 +1,48 @@
+{
+  "name": "sigrok-mcp-server",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "mounts": [
+    "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume"
+  ],
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "redhat.vscode-yaml",
+        "ms-azuretools.vscode-docker",
+        "github.vscode-github-actions",
+        "editorconfig.editorconfig",
+        "DavidAnson.vscode-markdownlint"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "go.lintOnSave": "workspace",
+        "go.lintTool": "golangci-lint",
+        "go.formatTool": "gofmt",
+        "[go]": {
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        },
+        "editor.formatOnSave": true,
+        "files.eol": "\n",
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true,
+        "yaml.schemaStore.enable": true,
+        "yaml.format.enable": true
+      }
+    }
+  },
+  "remoteUser": "vscode",
+  "postCreateCommand": "npm install -g markdownlint-cli2 && markdownlint-cli2 --version && echo 'Dev container ready!'"
+}
