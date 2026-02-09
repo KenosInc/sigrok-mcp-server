@@ -1,7 +1,6 @@
 package sigrok
 
 import (
-	"regexp"
 	"strings"
 )
 
@@ -50,7 +49,7 @@ type ScannedDevice struct {
 // sectionHeader should match the full header line, e.g. "Supported hardware drivers:".
 func ParseListSection(output, sectionHeader string) []ListItem {
 	lines := strings.Split(output, "\n")
-	var items []ListItem
+	items := []ListItem{}
 	inSection := false
 
 	for _, line := range lines {
@@ -79,20 +78,22 @@ func ParseListSection(output, sectionHeader string) []ListItem {
 
 // splitListLine splits a line like "  agilent-dmm          Agilent U12xx series DMMs"
 // into ID and description parts.
-var multiSpaceRe = regexp.MustCompile(`\s{2,}`)
-
 func splitListLine(line string) (string, string) {
-	// Split on 2+ whitespace characters to separate ID from description.
-	loc := multiSpaceRe.FindStringIndex(line)
-	if loc != nil {
-		return strings.TrimSpace(line[:loc[0]]), strings.TrimSpace(line[loc[1]:])
+	// Split on first occurrence of two consecutive spaces.
+	idx := strings.Index(line, "  ")
+	if idx >= 0 {
+		return strings.TrimSpace(line[:idx]), strings.TrimSpace(line[idx:])
 	}
 	return strings.TrimSpace(line), ""
 }
 
 // ParseDecoderDetails parses the output of sigrok-cli --show -P <decoder>.
 func ParseDecoderDetails(output string) DecoderDetails {
-	var d DecoderDetails
+	d := DecoderDetails{
+		Inputs:  []string{},
+		Outputs: []string{},
+		Options: []string{},
+	}
 	lines := strings.Split(output, "\n")
 
 	inDoc := false
@@ -134,7 +135,7 @@ func ParseDecoderDetails(output string) DecoderDetails {
 // collectDashItems collects lines starting with "- " from startIdx onward,
 // stopping at the first non-matching non-empty line.
 func collectDashItems(lines []string, startIdx int) []string {
-	var items []string
+	items := []string{}
 	for i := startIdx; i < len(lines); i++ {
 		trimmed := strings.TrimSpace(lines[i])
 		if trimmed == "" {
@@ -150,7 +151,12 @@ func collectDashItems(lines []string, startIdx int) []string {
 
 // ParseDriverDetails parses the output of sigrok-cli --show -d <driver>.
 func ParseDriverDetails(output string) DriverDetails {
-	d := DriverDetails{RawOutput: output}
+	d := DriverDetails{
+		Functions:   []string{},
+		ScanOptions: []string{},
+		Devices:     []string{},
+		RawOutput:   output,
+	}
 	lines := strings.Split(output, "\n")
 
 	section := ""
@@ -200,16 +206,14 @@ func ParseVersion(output string) VersionInfo {
 		}
 	}
 
-	// Look for libsigrok and libsigrokdecode versions
-	libsigrokRe := regexp.MustCompile(`libsigrok (\S+)`)
-	libsigrokdecodeRe := regexp.MustCompile(`libsigrokdecode (\S+)`)
-
+	// Look for libsigrok and libsigrokdecode versions.
+	// Check libsigrokdecode first to avoid libsigrok matching it as a prefix.
 	for _, line := range lines {
-		if m := libsigrokRe.FindStringSubmatch(line); m != nil && info.LibsigrokVersion == "" {
-			info.LibsigrokVersion = m[1]
-		}
-		if m := libsigrokdecodeRe.FindStringSubmatch(line); m != nil && info.LibsigrokdecodeVersion == "" {
-			info.LibsigrokdecodeVersion = m[1]
+		trimmed := strings.TrimSpace(line)
+		if after, found := strings.CutPrefix(trimmed, "- libsigrokdecode "); found && info.LibsigrokdecodeVersion == "" {
+			info.LibsigrokdecodeVersion = strings.Fields(after)[0]
+		} else if after, found := strings.CutPrefix(trimmed, "- libsigrok "); found && info.LibsigrokVersion == "" {
+			info.LibsigrokVersion = strings.Fields(after)[0]
 		}
 	}
 
@@ -218,7 +222,7 @@ func ParseVersion(output string) VersionInfo {
 
 // ParseScanDevices parses the output of sigrok-cli --scan.
 func ParseScanDevices(output string) []ScannedDevice {
-	var devices []ScannedDevice
+	devices := []ScannedDevice{}
 	lines := strings.Split(output, "\n")
 
 	for _, line := range lines {

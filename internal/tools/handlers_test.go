@@ -4,19 +4,23 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 // mockExecutor implements a test double for sigrok.Executor.
 type mockExecutor struct {
-	result *sigrok.CommandResult
-	err    error
+	result  *sigrok.CommandResult
+	err     error
+	gotArgs []string
 }
 
-func (m *mockExecutor) Run(_ context.Context, _ ...string) (*sigrok.CommandResult, error) {
+func (m *mockExecutor) Run(_ context.Context, args ...string) (*sigrok.CommandResult, error) {
+	m.gotArgs = args
 	return m.result, m.err
 }
 
@@ -47,17 +51,105 @@ func assertTextResult(t *testing.T, result *mcp.CallToolResult, errExpected bool
 	return tc.Text
 }
 
+func TestRegisterAll(t *testing.T) {
+	srv := server.NewMCPServer("test", "0.0.1")
+	h := NewHandlers(&mockExecutor{})
+	RegisterAll(srv, h)
+
+	ctx := context.Background()
+
+	// Initialize the server first (required before tools/list).
+	initMsg := json.RawMessage(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}`)
+	resp := srv.HandleMessage(ctx, initMsg)
+	if resp == nil {
+		t.Fatal("expected initialize response")
+	}
+
+	// Send tools/list request.
+	listMsg := json.RawMessage(`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}`)
+	resp = srv.HandleMessage(ctx, listMsg)
+	if resp == nil {
+		t.Fatal("expected tools/list response")
+	}
+
+	// Parse the response to extract tool names.
+	respBytes, err := json.Marshal(resp)
+	if err != nil {
+		t.Fatalf("failed to marshal response: %v", err)
+	}
+
+	var parsed struct {
+		Result struct {
+			Tools []struct {
+				Name        string `json:"name"`
+				InputSchema struct {
+					Required []string `json:"required"`
+				} `json:"inputSchema"`
+			} `json:"tools"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(respBytes, &parsed); err != nil {
+		t.Fatalf("failed to parse tools/list response: %v", err)
+	}
+
+	wantTools := map[string]bool{
+		"list_input_formats":     true,
+		"list_output_formats":    true,
+		"list_supported_decoders": true,
+		"list_supported_hardware": true,
+		"scan_devices":           true,
+		"show_decoder_details":   true,
+		"show_driver_details":    true,
+		"show_version":           true,
+	}
+
+	if len(parsed.Result.Tools) != len(wantTools) {
+		t.Fatalf("got %d tools, want %d", len(parsed.Result.Tools), len(wantTools))
+	}
+
+	for _, tool := range parsed.Result.Tools {
+		if !wantTools[tool.Name] {
+			t.Errorf("unexpected tool: %q", tool.Name)
+		}
+		// Verify parameterized tools have required params.
+		switch tool.Name {
+		case "show_decoder_details":
+			if !contains(tool.InputSchema.Required, "decoder") {
+				t.Errorf("show_decoder_details missing required param 'decoder'")
+			}
+		case "show_driver_details":
+			if !contains(tool.InputSchema.Required, "driver") {
+				t.Errorf("show_driver_details missing required param 'driver'")
+			}
+		}
+	}
+}
+
+func contains(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
 func TestHandleShowVersion(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "sigrok-cli 0.7.2\n\nLibraries and features:\n- libsigrok 0.5.2\n- libsigrokdecode 0.5.3\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleShowVersion(context.Background(), makeRequest("show_version", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"--version"}) {
+		t.Errorf("args = %v, want [--version]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -71,16 +163,21 @@ func TestHandleShowVersion(t *testing.T) {
 }
 
 func TestHandleListSupportedHardware(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "Supported hardware drivers:\n  demo                 Demo driver and pattern generator\n  fx2lafw              fx2lafw\n\nSupported input formats:\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleListSupportedHardware(context.Background(), makeRequest("list_supported_hardware", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"-L"}) {
+		t.Errorf("args = %v, want [-L]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -97,16 +194,21 @@ func TestHandleListSupportedHardware(t *testing.T) {
 }
 
 func TestHandleListSupportedDecoders(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "Supported protocol decoders:\n  uart                 UART\n  spi                  SPI\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleListSupportedDecoders(context.Background(), makeRequest("list_supported_decoders", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"-L"}) {
+		t.Errorf("args = %v, want [-L]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -120,16 +222,21 @@ func TestHandleListSupportedDecoders(t *testing.T) {
 }
 
 func TestHandleListInputFormats(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "Supported input formats:\n  csv                  Comma-separated values\n\nSupported output formats:\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleListInputFormats(context.Background(), makeRequest("list_input_formats", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"-L"}) {
+		t.Errorf("args = %v, want [-L]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -143,16 +250,21 @@ func TestHandleListInputFormats(t *testing.T) {
 }
 
 func TestHandleListOutputFormats(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "Supported output formats:\n  csv                  Comma-separated values\n  vcd                  Value Change Dump data\n\nSupported transform modules:\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleListOutputFormats(context.Background(), makeRequest("list_output_formats", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"-L"}) {
+		t.Errorf("args = %v, want [-L]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -166,16 +278,21 @@ func TestHandleListOutputFormats(t *testing.T) {
 }
 
 func TestHandleShowDecoderDetails(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "ID: uart\nName: UART\nLong name: Universal Asynchronous Receiver/Transmitter\nDescription: Asynchronous, serial bus.\nLicense: gplv2+\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": "uart"}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"--show", "-P", "uart"}) {
+		t.Errorf("args = %v, want [--show -P uart]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -199,17 +316,44 @@ func TestHandleShowDecoderDetailsMissingParam(t *testing.T) {
 	assertTextResult(t, result, true)
 }
 
+func TestHandleShowDecoderDetailsInvalidParam(t *testing.T) {
+	h := NewHandlers(&mockExecutor{})
+
+	tests := []struct {
+		name    string
+		decoder string
+	}{
+		{"flag injection", "--output-file=/tmp/evil"},
+		{"spaces", "uart spi"},
+		{"special chars", "uart;rm -rf"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": tt.decoder}))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertTextResult(t, result, true)
+		})
+	}
+}
+
 func TestHandleShowDriverDetails(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "Driver functions:\n    Demo device\nScan options:\n    logic_channels\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleShowDriverDetails(context.Background(), makeRequest("show_driver_details", map[string]any{"driver": "demo"}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"--show", "-d", "demo"}) {
+		t.Errorf("args = %v, want [--show -d demo]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -233,17 +377,33 @@ func TestHandleShowDriverDetailsMissingParam(t *testing.T) {
 	assertTextResult(t, result, true)
 }
 
+func TestHandleShowDriverDetailsInvalidParam(t *testing.T) {
+	h := NewHandlers(&mockExecutor{})
+
+	result, err := h.HandleShowDriverDetails(context.Background(), makeRequest("show_driver_details", map[string]any{"driver": "--evil-flag"}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertTextResult(t, result, true)
+}
+
 func TestHandleScanDevices(t *testing.T) {
-	h := NewHandlers(&mockExecutor{
+	mock := &mockExecutor{
 		result: &sigrok.CommandResult{
 			Stdout:   "The following devices were found:\ndemo - Demo device with 13 channels: D0 D1 D2 D3 D4 D5 D6 D7 A0 A1 A2 A3 A4\n",
 			ExitCode: 0,
 		},
-	})
+	}
+	h := NewHandlers(mock)
 
 	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", nil))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"--scan"}) {
+		t.Errorf("args = %v, want [--scan]", mock.gotArgs)
 	}
 
 	text := assertTextResult(t, result, false)
@@ -264,12 +424,16 @@ func TestHandlerExecutionError(t *testing.T) {
 		err: errors.New("binary not found"),
 	})
 
+	// Execution errors should be returned as tool errors (IsError=true),
+	// not as Go errors, so LLMs can see the failure message.
 	result, err := h.HandleShowVersion(context.Background(), makeRequest("show_version", nil))
-	if err == nil {
-		t.Fatal("expected error, got nil")
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
 	}
-	if result != nil {
-		t.Errorf("expected nil result, got %v", result)
+
+	text := assertTextResult(t, result, true)
+	if text == "" {
+		t.Error("expected non-empty error message")
 	}
 }
 

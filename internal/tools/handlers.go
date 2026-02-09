@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
 )
+
+// validIDRe matches valid sigrok identifier strings (alphanumeric, hyphens, underscores).
+var validIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
 // Runner abstracts sigrok-cli command execution for testing.
 type Runner interface {
@@ -47,7 +51,7 @@ func (h *Handlers) HandleListOutputFormats(ctx context.Context, _ mcp.CallToolRe
 func (h *Handlers) runListSection(ctx context.Context, sectionHeader string) (*mcp.CallToolResult, error) {
 	result, err := h.runner.Run(ctx, "-L")
 	if err != nil {
-		return nil, fmt.Errorf("sigrok-cli -L: %w", err)
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
 		return toolError(result.Stderr), nil
@@ -63,10 +67,13 @@ func (h *Handlers) HandleShowDecoderDetails(ctx context.Context, req mcp.CallToo
 	if decoder == "" {
 		return toolError("missing required parameter: decoder"), nil
 	}
+	if !validIDRe.MatchString(decoder) {
+		return toolError("invalid decoder: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
 
 	result, err := h.runner.Run(ctx, "--show", "-P", decoder)
 	if err != nil {
-		return nil, fmt.Errorf("sigrok-cli --show -P %s: %w", decoder, err)
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
 		return toolError(result.Stderr), nil
@@ -82,10 +89,13 @@ func (h *Handlers) HandleShowDriverDetails(ctx context.Context, req mcp.CallTool
 	if driver == "" {
 		return toolError("missing required parameter: driver"), nil
 	}
+	if !validIDRe.MatchString(driver) {
+		return toolError("invalid driver: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
 
 	result, err := h.runner.Run(ctx, "--show", "-d", driver)
 	if err != nil {
-		return nil, fmt.Errorf("sigrok-cli --show -d %s: %w", driver, err)
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
 		return toolError(result.Stderr), nil
@@ -99,7 +109,7 @@ func (h *Handlers) HandleShowDriverDetails(ctx context.Context, req mcp.CallTool
 func (h *Handlers) HandleShowVersion(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	result, err := h.runner.Run(ctx, "--version")
 	if err != nil {
-		return nil, fmt.Errorf("sigrok-cli --version: %w", err)
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
 		return toolError(result.Stderr), nil
@@ -113,7 +123,7 @@ func (h *Handlers) HandleShowVersion(ctx context.Context, _ mcp.CallToolRequest)
 func (h *Handlers) HandleScanDevices(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	result, err := h.runner.Run(ctx, "--scan")
 	if err != nil {
-		return nil, fmt.Errorf("sigrok-cli --scan: %w", err)
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
 		return toolError(result.Stderr), nil
