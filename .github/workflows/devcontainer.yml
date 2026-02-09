@@ -1,0 +1,37 @@
+name: Devcontainer
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".devcontainer/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - ".devcontainer/**"
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          runCmd: |
+            sigrok-cli --version
+            yamllint --version
+            golangci-lint version
+            gh --version
+            node --version
+            markdownlint-cli2 --version
