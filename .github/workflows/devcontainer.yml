@@ -25,6 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Create Claude config directory
+        run: mkdir -p ~/.claude && touch ~/.claude.json
+
       - name: Build devcontainer
         uses: devcontainers/ci@v0.3
         with:
