@@ -6,7 +6,8 @@
   "runArgs": [
     "--name",
     "sigrok-mcp-server",
-    "--rm"
+    "--rm",
+    "--device=/dev/bus/usb"
   ],
   "mounts": [
     "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume",
