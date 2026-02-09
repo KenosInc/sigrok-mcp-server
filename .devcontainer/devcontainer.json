@@ -44,5 +44,6 @@
     }
   },
   "remoteUser": "vscode",
-  "postCreateCommand": "npm install -g markdownlint-cli2 && markdownlint-cli2 --version && echo 'Dev container ready!'"
+  "postCreateCommand": "npm install -g markdownlint-cli2 && markdownlint-cli2 --version && echo 'Dev container ready!'",
+  "postStartCommand": "test -w /go/pkg/mod || echo 'WARNING: Go module cache is not writable. Run: docker volume rm sigrok-mcp-server-go-mod-cache and rebuild the container.'"
 }
