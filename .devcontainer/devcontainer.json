@@ -1,18 +1,8 @@
 {
   "name": "sigrok-mcp-server",
-  "runArgs": [
-    "--name",
-    "sigrok-mcp-server",
-    "--rm"
-  ],
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "mounts": [
-    "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume",
-    "source=${localWorkspaceFolder}/.claude,target=/home/vscode/.claude,type=bind",
-    "source=${localWorkspaceFolder}/.claude.json,target=/home/vscode/.claude.json,type=bind"
-  ],
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/sigrok-mcp-server",
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/devcontainers/features/docker-in-docker:2": {},
