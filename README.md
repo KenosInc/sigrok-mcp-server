@@ -14,6 +14,8 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 | `show_driver_details` | Show detailed info about a hardware driver (functions, scan options, devices) |
 | `show_version` | Show sigrok-cli and library version information |
 | `scan_devices` | Scan for connected hardware devices |
+| `capture_data` | Capture communication data from a device and save to file |
+| `decode_protocol` | Decode protocol data from a captured file using protocol decoders |
 
 ## Quickstart
 
@@ -98,8 +100,18 @@ libsigrok / libsigrokdecode
 
 - **Transport**: stdio (stdin/stdout JSON-RPC)
 - **No C bindings**: sigrok-cli is the sole interface to sigrok
-- **Read-only**: All tools are read-only queries; no data acquisition or device configuration
+- **Capture & decode**: `capture_data` acquires data from devices; all other tools are read-only queries
 - **Structured output**: Raw sigrok-cli text output is parsed into JSON
+
+## Workflow Example
+
+A typical signal analysis workflow using Claude:
+
+1. `scan_devices` — Discover connected hardware
+2. `show_driver_details` — Check driver capabilities
+3. `capture_data` — Capture communication data to file
+4. `decode_protocol` — Decode captured data with protocol decoders
+5. Claude analyzes the decoded output and explains the communication
 
 ## Development
 
