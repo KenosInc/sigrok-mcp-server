@@ -1,5 +1,10 @@
 {
   "name": "sigrok-mcp-server",
+  "runArgs": [
+    "--name",
+    "sigrok-mcp-server",
+    "--rm"
+  ],
   "build": {
     "dockerfile": "Dockerfile"
   },

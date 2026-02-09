@@ -1,0 +1,81 @@
+ID: uart
+Name: UART
+Long name: Universal Asynchronous Receiver/Transmitter
+Description: Asynchronous, serial bus.
+License: gplv2+
+Possible decoder input IDs:
+- logic
+Possible decoder output IDs:
+- uart
+Decoder tags:
+Annotation classes:
+- rx-data: RX data
+- tx-data: TX data
+- rx-start: RX start bits
+- tx-start: TX start bits
+- rx-parity-ok: RX parity OK bits
+- tx-parity-ok: TX parity OK bits
+- rx-parity-err: RX parity error bits
+- tx-parity-err: TX parity error bits
+- rx-stop: RX stop bits
+- tx-stop: TX stop bits
+- rx-warnings: RX warnings
+- tx-warnings: TX warnings
+- rx-data-bits: RX data bits
+- tx-data-bits: TX data bits
+- rx-break: RX break
+- tx-break: TX break
+- rx-packet: RX packet
+- tx-packet: TX packet
+Annotation rows:
+- rx-data-bits (RX bits): rx-data-bits
+- rx-data (RX): rx-data, rx-start, rx-parity-ok, rx-parity-err, rx-stop
+- rx-warnings (RX warnings): rx-warnings
+- rx-break (RX break): rx-break
+- rx-packets (RX packets): rx-packet
+- tx-data-bits (TX bits): tx-data-bits
+- tx-data (TX): tx-data, tx-start, tx-parity-ok, tx-parity-err, tx-stop
+- tx-warnings (TX warnings): tx-warnings
+- tx-break (TX break): tx-break
+- tx-packets (TX packets): tx-packet
+Binary classes:
+- rx: RX dump
+- tx: TX dump
+- rxtx: RX/TX dump
+Required channels:
+None.
+Optional channels:
+- rx (RX): UART receive line
+- tx (TX): UART transmit line
+Options:
+- baudrate: Baud rate (default 115200)
+- data_bits: Data bits (5, 6, 7, 8, 9, default 8)
+- parity: Parity ('none', 'odd', 'even', 'zero', 'one', 'ignore', default 'none')
+- stop_bits: Stop bits (0.0, 0.5, 1.0, 1.5, default 1.0)
+- bit_order: Bit order ('lsb-first', 'msb-first', default 'lsb-first')
+- format: Data format ('ascii', 'dec', 'hex', 'oct', 'bin', default 'hex')
+- invert_rx: Invert RX ('yes', 'no', default 'no')
+- invert_tx: Invert TX ('yes', 'no', default 'no')
+- rx_packet_delim: RX packet delimiter (decimal) (default -1)
+- tx_packet_delim: TX packet delimiter (decimal) (default -1)
+- rx_packet_len: RX packet length (default -1)
+- tx_packet_len: TX packet length (default -1)
+Documentation:
+UART (Universal Asynchronous Receiver Transmitter) is a simple serial
+communication protocol which allows two devices to talk to each other.
+
+This decoder should work on all "UART-like" async protocols with one
+start bit (0), 5-9 databits, an (optional) parity bit, and one or more
+stop bits (1), in this order.
+
+It can be run on one signal line (RX or TX) only, or on two lines (RX + TX).
+
+There are various standards for the physical layer specification of the
+signals, including RS232, (TTL) UART, RS485, and others. However, the logic
+level of the respective pins is only relevant when acquiring the data via
+a logic analyzer (you have to select the correct logic analyzer and/or
+the correct place where to probe). Once the data is in digital form and
+matches the "UART" description above, this protocol decoder can work with
+it though, no matter whether the source was on TTL UART levels, or RS232,
+or others.
+
