@@ -1,0 +1,1 @@
+# sigrok-mcp-server
