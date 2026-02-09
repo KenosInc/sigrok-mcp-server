@@ -1,5 +1,5 @@
-# Build stage
-FROM golang:1.25-bookworm AS builder
+# Stage 1: Build Go binary
+FROM golang:1.25-bookworm AS go-builder
 
 WORKDIR /build
 
@@ -9,14 +9,65 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /sigrok-mcp-server ./cmd/sigrok-mcp-server
 
-# Runtime stage
+# Stage 2: Build sigrok from git (kingst-la2016 driver requires unreleased libsigrok > 0.5.2)
+FROM debian:bookworm AS sigrok-builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git gcc g++ make autoconf autoconf-archive automake libtool pkg-config \
+        libglib2.0-dev libzip-dev libusb-1.0-0-dev libftdi1-dev libhidapi-dev \
+        libieee1284-3-dev libserialport-dev \
+        python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 git://sigrok.org/libsigrok /tmp/libsigrok \
+    && cd /tmp/libsigrok \
+    && ./autogen.sh \
+    && ./configure \
+    && make -j"$(nproc)" \
+    && make install \
+    && ldconfig \
+    && rm -rf /tmp/libsigrok
+
+RUN git clone --depth 1 git://sigrok.org/libsigrokdecode /tmp/libsigrokdecode \
+    && cd /tmp/libsigrokdecode \
+    && ./autogen.sh \
+    && ./configure \
+    && make -j"$(nproc)" \
+    && make install \
+    && ldconfig \
+    && rm -rf /tmp/libsigrokdecode
+
+RUN git clone --depth 1 git://sigrok.org/sigrok-cli /tmp/sigrok-cli \
+    && cd /tmp/sigrok-cli \
+    && ./autogen.sh \
+    && ./configure \
+    && make -j"$(nproc)" \
+    && make install \
+    && rm -rf /tmp/sigrok-cli
+
+# Stage 3: Runtime
 FROM debian:bookworm-slim
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends sigrok-cli && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y --no-install-recommends \
+        libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 libhidapi-libusb0 \
+        libieee1284-3 libserialport0 \
+        python3 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /sigrok-mcp-server /usr/local/bin/sigrok-mcp-server
+# Copy sigrok binaries, libraries, and decoders from builder
+COPY --from=sigrok-builder /usr/local/bin/sigrok-cli /usr/local/bin/sigrok-cli
+COPY --from=sigrok-builder /usr/local/lib/libsigrok* /usr/local/lib/
+COPY --from=sigrok-builder /usr/local/lib/libsigrokdecode* /usr/local/lib/
+COPY --from=sigrok-builder /usr/local/share/libsigrokdecode/ /usr/local/share/libsigrokdecode/
+RUN ldconfig
+
+# Copy Go binary from builder
+COPY --from=go-builder /sigrok-mcp-server /usr/local/bin/sigrok-mcp-server
+
+# Smoke-test: verify sigrok-cli works and includes kingst driver
+RUN sigrok-cli --version \
+    && sigrok-cli --list-supported | grep -q kingst
 
 ENTRYPOINT ["sigrok-mcp-server"]
