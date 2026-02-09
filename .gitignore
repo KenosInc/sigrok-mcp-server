@@ -32,4 +32,5 @@ go.work.sum
 # .vscode/
 
 # Claude Code local settings
+CLAUDE.local.md
 .claude/settings.local.json
