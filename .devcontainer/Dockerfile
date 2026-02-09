@@ -5,6 +5,7 @@ FROM mcr.microsoft.com/devcontainers/go:1-bookworm
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
         sigrok-cli \
+        usbutils \
         yamllint \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -18,5 +19,6 @@ SHELL ["/bin/sh", "-c"]
 
 # Smoke-test: fail the build early if any tool is missing or broken
 RUN sigrok-cli --version \
+    && lsusb --version \
     && yamllint --version \
     && golangci-lint version
