@@ -9,7 +9,9 @@
     "dockerfile": "Dockerfile"
   },
   "mounts": [
-    "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume"
+    "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume",
+    "source=${localWorkspaceFolder}/.claude,target=/home/vscode/.claude,type=bind",
+    "source=${localWorkspaceFolder}/.claude.json,target=/home/vscode/.claude.json,type=bind"
   ],
   "features": {
     "ghcr.io/devcontainers/features/github-cli:1": {},
