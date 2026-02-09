@@ -46,4 +46,27 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 	srv.AddTool(mcp.NewTool("scan_devices",
 		mcp.WithDescription("Scan for connected hardware devices. Returns an array of {driver, description} objects."),
 	), h.HandleScanDevices)
+
+	srv.AddTool(mcp.NewTool("capture_data",
+		mcp.WithDescription("Capture communication data from a connected device and save to file. Either 'samples' or 'time' must be specified."),
+		mcp.WithString("driver", mcp.Description("Hardware driver ID (e.g. 'fx2lafw', 'demo')"), mcp.Required()),
+		mcp.WithString("config", mcp.Description("Device configuration (e.g. 'samplerate=1M')")),
+		mcp.WithString("channels", mcp.Description("Channels to use (e.g. 'D0,D1,D2')")),
+		mcp.WithNumber("samples", mcp.Description("Number of samples to acquire")),
+		mcp.WithNumber("time", mcp.Description("How long to sample in milliseconds")),
+		mcp.WithString("triggers", mcp.Description("Trigger configuration (e.g. 'D0=r')")),
+		mcp.WithBoolean("wait_trigger", mcp.Description("Wait for trigger before capturing")),
+		mcp.WithString("output_file", mcp.Description("Output filename (auto-generated if omitted)")),
+	), h.HandleCaptureData)
+
+	srv.AddTool(mcp.NewTool("decode_protocol",
+		mcp.WithDescription("Decode protocol data from a captured file using sigrok protocol decoders."),
+		mcp.WithString("input_file", mcp.Description("Input filename"), mcp.Required()),
+		mcp.WithString("protocol_decoders", mcp.Description("Protocol decoders to apply (e.g. 'uart:baudrate=9600')"), mcp.Required()),
+		mcp.WithString("input_format", mcp.Description("Input format (e.g. 'vcd', 'binary')")),
+		mcp.WithString("annotations", mcp.Description("Decoder annotation filter (e.g. 'uart=rx-data')")),
+		mcp.WithBoolean("show_sample_numbers", mcp.Description("Include sample numbers in output")),
+		mcp.WithString("meta_output", mcp.Description("Decoder meta output filter (e.g. 'uart=baud')")),
+		mcp.WithBoolean("json_trace", mcp.Description("Output in Google Trace Event JSON format")),
+	), h.HandleDecodeProtocol)
 }

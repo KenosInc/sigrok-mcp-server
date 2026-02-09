@@ -45,6 +45,17 @@ type ScannedDevice struct {
 	Description string `json:"description"`
 }
 
+// CaptureResult holds the result of a capture_data operation.
+type CaptureResult struct {
+	File      string `json:"file"`
+	RawOutput string `json:"raw_output"`
+}
+
+// DecodeResult holds the result of a decode_protocol operation.
+type DecodeResult struct {
+	Output string `json:"output"`
+}
+
 // ParseListSection extracts items from a named section of sigrok-cli -L output.
 // sectionHeader should match the full header line, e.g. "Supported hardware drivers:".
 func ParseListSection(output, sectionHeader string) []ListItem {
