@@ -72,6 +72,21 @@ func TestParseListSection(t *testing.T) {
 	}
 }
 
+func TestParseListSectionSingleSpaceSeparator(t *testing.T) {
+	// Regression: some sigrok-cli lines use only a single space between ID and description.
+	input := "Supported hardware drivers:\n  arachnid-labs-re-load-pro Arachnid Labs Re:load Pro\n  demo                 Demo driver\n"
+	items := ParseListSection(input, "Supported hardware drivers:")
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2", len(items))
+	}
+	if items[0].ID != "arachnid-labs-re-load-pro" {
+		t.Errorf("first item ID = %q, want %q", items[0].ID, "arachnid-labs-re-load-pro")
+	}
+	if items[0].Description != "Arachnid Labs Re:load Pro" {
+		t.Errorf("first item Description = %q, want %q", items[0].Description, "Arachnid Labs Re:load Pro")
+	}
+}
+
 func TestParseListSectionUnknown(t *testing.T) {
 	items := ParseListSection("some random text", "Nonexistent section:")
 	if len(items) != 0 {

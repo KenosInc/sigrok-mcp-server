@@ -79,10 +79,16 @@ func ParseListSection(output, sectionHeader string) []ListItem {
 // splitListLine splits a line like "  agilent-dmm          Agilent U12xx series DMMs"
 // into ID and description parts.
 func splitListLine(line string) (string, string) {
-	// Split on first occurrence of two consecutive spaces.
+	// Prefer splitting on two consecutive spaces (typical padding).
 	idx := strings.Index(line, "  ")
-	if idx >= 0 {
+	if idx > 0 {
 		return strings.TrimSpace(line[:idx]), strings.TrimSpace(line[idx:])
+	}
+	// Fallback: split on first single space for lines with minimal padding
+	// (e.g. "arachnid-labs-re-load-pro Arachnid Labs Re:load Pro").
+	idx = strings.Index(line, " ")
+	if idx > 0 {
+		return line[:idx], strings.TrimSpace(line[idx:])
 	}
 	return strings.TrimSpace(line), ""
 }

@@ -16,7 +16,6 @@ func TestHelperProcess(t *testing.T) {
 	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
 		return
 	}
-	defer os.Exit(0)
 
 	exitCode, _ := strconv.Atoi(os.Getenv("GO_HELPER_EXIT_CODE"))
 	stdout := os.Getenv("GO_HELPER_STDOUT")
