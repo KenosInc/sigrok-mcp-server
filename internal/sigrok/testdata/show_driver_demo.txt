@@ -1,0 +1,27 @@
+Driver functions:
+    Demo device
+    Logic analyzer
+    Oscilloscope
+Scan options:
+    logic_channels
+    analog_channels
+    limit_frames
+demo - Demo device with 13 channels: D0 D1 D2 D3 D4 D5 D6 D7 A0 A1 A2 A3 A4
+Channel groups:
+    Logic: channels D0 D1 D2 D3 D4 D5 D6 D7
+    Analog: channels A0 A1 A2 A3 A4
+    A0: channel A0
+    A1: channel A1
+    A2: channel A2
+    A3: channel A3
+    A4: channel A4
+Supported configuration options across all channel groups:
+    continuous: on, off
+    limit_samples: 0 (current)
+    limit_time: 0 (current)
+    limit_frames: 0 (current)
+    samplerate (1 Hz - 1 GHz in steps of 1 Hz)
+    averaging: on, off (current)
+    avg_samples: 0 (current)
+    Supported triggers: 0 1 r f e 
+    captureratio: 20 (current)
