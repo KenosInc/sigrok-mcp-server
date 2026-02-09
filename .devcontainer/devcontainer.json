@@ -22,7 +22,7 @@
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
   "remoteEnv": {
-    "PATH": "${containerEnv:HOME}/.local/bin:${containerEnv:PATH}"
+    "PATH": "/home/vscode/.local/bin:${containerEnv:PATH}"
   },
   "customizations": {
     "vscode": {

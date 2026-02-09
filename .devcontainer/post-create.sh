@@ -4,6 +4,9 @@ set -euo pipefail
 # Install global npm tools
 npm install -g markdownlint-cli2
 
+# Install latest claude code
+claude install
+
 # Verify all tools are available
 echo "--- Tool verification ---"
 sigrok-cli --version
