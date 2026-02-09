@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
@@ -617,6 +618,9 @@ func TestHandleDecodeProtocol(t *testing.T) {
 	if parsed.Output == "" {
 		t.Error("expected non-empty output")
 	}
+	if parsed.Format != "text" {
+		t.Errorf("format = %q, want %q", parsed.Format, "text")
+	}
 }
 
 func TestHandleDecodeProtocolWithAllOptions(t *testing.T) {
@@ -654,7 +658,14 @@ func TestHandleDecodeProtocolWithAllOptions(t *testing.T) {
 		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
 	}
 
-	assertTextResult(t, result, false)
+	text := assertTextResult(t, result, false)
+	var parsed sigrok.DecodeResult
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Format != "json_trace" {
+		t.Errorf("format = %q, want %q", parsed.Format, "json_trace")
+	}
 }
 
 func TestHandleDecodeProtocolMissingParams(t *testing.T) {
@@ -700,6 +711,220 @@ func TestHandleDecodeProtocolInvalidParam(t *testing.T) {
 			}
 			assertTextResult(t, result, true)
 		})
+	}
+}
+
+func TestHandleCaptureDataTimeOnly(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"time":   float64(500),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --time is present and --samples is not
+	if len(mock.gotArgs) < 5 {
+		t.Fatalf("expected at least 5 args, got %v", mock.gotArgs)
+	}
+	if mock.gotArgs[0] != "-d" || mock.gotArgs[1] != "demo" {
+		t.Errorf("expected -d demo, got %v", mock.gotArgs[:2])
+	}
+	if mock.gotArgs[2] != "--time" || mock.gotArgs[3] != "500" {
+		t.Errorf("expected --time 500, got %v", mock.gotArgs[2:4])
+	}
+	for i, arg := range mock.gotArgs {
+		if arg == "--samples" {
+			t.Errorf("unexpected --samples at position %d", i)
+		}
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleCaptureDataNegativeSamples(t *testing.T) {
+	h := NewHandlers(&mockExecutor{})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": float64(-5),
+		"time":    float64(1000),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := assertTextResult(t, result, true)
+	if !contains([]string{text}, "samples must be a positive number") {
+		t.Errorf("expected 'samples must be a positive number' error, got %q", text)
+	}
+}
+
+func TestHandleCaptureDataNegativeTime(t *testing.T) {
+	h := NewHandlers(&mockExecutor{})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": float64(1000),
+		"time":    float64(-5),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := assertTextResult(t, result, true)
+	if !contains([]string{text}, "time must be a positive number") {
+		t.Errorf("expected 'time must be a positive number' error, got %q", text)
+	}
+}
+
+func TestHandleCaptureDataOverflowSamples(t *testing.T) {
+	h := NewHandlers(&mockExecutor{})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": float64(1e16),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertTextResult(t, result, true)
+}
+
+func TestHandleCaptureDataExecutionError(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		err: errors.New("binary not found"),
+	})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": float64(1000),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestHandleCaptureDataNonZeroExit(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stderr:   "Error: device not found",
+			ExitCode: 1,
+		},
+	})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "fx2lafw",
+		"samples": float64(1000),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text != "Error: device not found" {
+		t.Errorf("error text = %q, want %q", text, "Error: device not found")
+	}
+}
+
+func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "some output",
+			Stderr:   "",
+			ExitCode: 1,
+		},
+	})
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": float64(1000),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text == "" {
+		t.Error("expected non-empty error message when stderr is empty")
+	}
+	if !strings.Contains(text, "exited with code 1") {
+		t.Errorf("expected exit code in error, got %q", text)
+	}
+}
+
+func TestHandleDecodeProtocolExecutionError(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		err: errors.New("binary not found"),
+	})
+
+	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
+		"input_file":        "capture.sr",
+		"protocol_decoders": "uart",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text == "" {
+		t.Error("expected non-empty error message")
+	}
+}
+
+func TestHandleDecodeProtocolNonZeroExit(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stderr:   "Error: input file not found",
+			ExitCode: 1,
+		},
+	})
+
+	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
+		"input_file":        "missing.sr",
+		"protocol_decoders": "uart",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text != "Error: input file not found" {
+		t.Errorf("error text = %q, want %q", text, "Error: input file not found")
+	}
+}
+
+func TestHandleDecodeProtocolNonZeroExitEmptyStderr(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			Stderr:   "",
+			ExitCode: 2,
+		},
+	})
+
+	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
+		"input_file":        "capture.sr",
+		"protocol_decoders": "uart",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "exited with code 2") {
+		t.Errorf("expected exit code in error, got %q", text)
 	}
 }
 

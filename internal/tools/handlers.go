@@ -14,7 +14,7 @@ import (
 // validIDRe matches valid sigrok identifier strings (alphanumeric, hyphens, underscores).
 var validIDRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]*$`)
 
-// validOptionRe matches sigrok-cli option values (config, channels, triggers, decoders, annotations).
+// validOptionRe matches sigrok-cli option values (config, channels, triggers, decoders, annotations, meta_output).
 var validOptionRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:=,/-]*$`)
 
 // validFilenameRe matches safe filenames (no path separators).
@@ -152,14 +152,21 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 
 	samples := req.GetFloat("samples", 0)
 	timeMs := req.GetFloat("time", 0)
-	if samples <= 0 && timeMs <= 0 {
-		return toolError("either 'samples' or 'time' must be specified"), nil
-	}
 	if samples < 0 {
 		return toolError("samples must be a positive number"), nil
 	}
 	if timeMs < 0 {
 		return toolError("time must be a positive number"), nil
+	}
+	if samples <= 0 && timeMs <= 0 {
+		return toolError("either 'samples' or 'time' must be specified"), nil
+	}
+	const maxNumericValue = 1e15
+	if samples > maxNumericValue {
+		return toolError("samples value is too large"), nil
+	}
+	if timeMs > maxNumericValue {
+		return toolError("time value is too large"), nil
 	}
 
 	config := req.GetString("config", "")
@@ -213,7 +220,7 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
-		return toolError(result.Stderr), nil
+		return toolError(nonEmptyError(result)), nil
 	}
 
 	return jsonResult(sigrok.CaptureResult{
@@ -282,12 +289,29 @@ func (h *Handlers) HandleDecodeProtocol(ctx context.Context, req mcp.CallToolReq
 		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
-		return toolError(result.Stderr), nil
+		return toolError(nonEmptyError(result)), nil
+	}
+
+	format := "text"
+	if jsonTrace {
+		format = "json_trace"
 	}
 
 	return jsonResult(sigrok.DecodeResult{
 		Output: result.Stdout,
+		Format: format,
 	})
+}
+
+func nonEmptyError(result *sigrok.CommandResult) string {
+	if result.Stderr != "" {
+		return result.Stderr
+	}
+	msg := fmt.Sprintf("sigrok-cli exited with code %d", result.ExitCode)
+	if result.Stdout != "" {
+		msg += ": " + result.Stdout
+	}
+	return msg
 }
 
 func jsonResult(v any) (*mcp.CallToolResult, error) {

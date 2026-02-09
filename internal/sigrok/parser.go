@@ -54,6 +54,7 @@ type CaptureResult struct {
 // DecodeResult holds the result of a decode_protocol operation.
 type DecodeResult struct {
 	Output string `json:"output"`
+	Format string `json:"format"`
 }
 
 // ParseListSection extracts items from a named section of sigrok-cli -L output.
