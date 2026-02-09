@@ -53,7 +53,7 @@ RUN apt-get update && \
         libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 \
         libhidapi-libusb0 libhidapi-hidraw0 \
         libieee1284-3 libserialport0 \
-        python3 \
+        python3 libpython3.11 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
