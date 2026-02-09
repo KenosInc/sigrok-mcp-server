@@ -3,11 +3,11 @@ FROM golang:1.23-bookworm AS builder
 
 WORKDIR /build
 
-COPY go.mod go.sum ./
+COPY go.mod go.sum* ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /sigrok-mcp-server .
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /sigrok-mcp-server ./cmd/sigrok-mcp-server
 
 # Runtime stage
 FROM debian:bookworm-slim
