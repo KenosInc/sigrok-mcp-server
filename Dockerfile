@@ -58,10 +58,10 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy sigrok binaries, libraries, and decoders from builder.
-# Use tar to preserve symlinks (COPY dereferences them, breaking ldconfig).
+# Use tar via sh -c to preserve symlinks (COPY dereferences them, breaking ldconfig).
 COPY --from=sigrok-builder /usr/local/bin/sigrok-cli /usr/local/bin/sigrok-cli
 RUN --mount=from=sigrok-builder,source=/usr/local/lib,target=/sigrok-lib \
-    tar cf - -C /sigrok-lib libsigrok.so* libsigrokdecode.so* | tar xf - -C /usr/local/lib
+    sh -c 'cd /sigrok-lib && tar cf - libsigrok.so* libsigrokdecode.so* | tar xf - -C /usr/local/lib'
 COPY --from=sigrok-builder /usr/local/share/libsigrokdecode/ /usr/local/share/libsigrokdecode/
 RUN ldconfig
 
