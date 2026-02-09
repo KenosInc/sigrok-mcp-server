@@ -50,16 +50,18 @@ FROM debian:bookworm-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 libhidapi-libusb0 \
+        libglib2.0-0 libzip4 libusb-1.0-0 libftdi1-2 \
+        libhidapi-libusb0 libhidapi-hidraw0 \
         libieee1284-3 libserialport0 \
         python3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy sigrok binaries, libraries, and decoders from builder
+# Copy sigrok binaries, libraries, and decoders from builder.
+# Use tar to preserve symlinks (COPY dereferences them, breaking ldconfig).
 COPY --from=sigrok-builder /usr/local/bin/sigrok-cli /usr/local/bin/sigrok-cli
-COPY --from=sigrok-builder /usr/local/lib/libsigrok* /usr/local/lib/
-COPY --from=sigrok-builder /usr/local/lib/libsigrokdecode* /usr/local/lib/
+RUN --mount=from=sigrok-builder,source=/usr/local/lib,target=/sigrok-lib \
+    tar cf - -C /sigrok-lib libsigrok.so* libsigrokdecode.so* | tar xf - -C /usr/local/lib
 COPY --from=sigrok-builder /usr/local/share/libsigrokdecode/ /usr/local/share/libsigrokdecode/
 RUN ldconfig
 
