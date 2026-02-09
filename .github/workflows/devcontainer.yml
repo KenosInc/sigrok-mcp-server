@@ -25,8 +25,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Use CI compose config
-        run: sed -i 's/compose.yaml/compose.ci.yaml/' .devcontainer/devcontainer.json
+      - name: Create Claude config directory
+        run: mkdir -p ~/.claude
 
       - name: Build devcontainer
         uses: devcontainers/ci@v0.3
