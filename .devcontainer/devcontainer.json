@@ -7,7 +7,7 @@
     "--name",
     "sigrok-mcp-server",
     "--rm",
-    "--device=/dev/bus/usb"
+    "--privileged"
   ],
   "mounts": [
     "source=sigrok-mcp-server-go-mod-cache,target=/go/pkg/mod,type=volume",

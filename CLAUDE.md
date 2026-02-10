@@ -37,6 +37,35 @@ Written in Go. Licensed under MIT (Kenos, Inc.).
 - **Docker container:** The MCP server runs inside a Docker container with `sigrok-cli` pre-installed.
 - **Transport:** MCP communication uses stdio (stdin/stdout JSON-RPC).
 
+## Package Structure
+
+- `cmd/sigrok-mcp-server/` — Entrypoint (`main.go`): wires config, executor, handlers, starts stdio server
+- `internal/config/` — Env-based configuration (`SIGROK_CLI_PATH`, `SIGROK_TIMEOUT_SECONDS`, `SIGROK_WORKING_DIR`)
+- `internal/sigrok/` — CLI executor (`Executor`) and output parsers; testdata/ contains golden output files
+- `internal/tools/` — MCP tool definitions (`tools.go`) and handler implementations (`handlers.go`)
+
+## Key Dependencies
+
+- `github.com/mark3labs/mcp-go` — MCP protocol framework (tool registration, JSON-RPC stdio transport)
+
+## Environment Variables
+
+- `SIGROK_CLI_PATH` — Path to sigrok-cli binary (default: `sigrok-cli`)
+- `SIGROK_TIMEOUT_SECONDS` — Command timeout in seconds (default: `30`)
+- `SIGROK_WORKING_DIR` — Working directory for sigrok-cli (default: current dir)
+
+## Testing Patterns
+
+- `Runner` interface in `internal/tools/` enables mock-based handler tests
+- `CommandFactory` in `internal/sigrok/executor.go` is a test seam for injecting fake commands
+- `internal/sigrok/testdata/` contains golden `sigrok-cli` output files for parser tests
+
+## Security
+
+- All user inputs are validated with regexes before passing to `sigrok-cli` (command injection prevention)
+- Key regexes: `validIDRe`, `validOptionRe`, `validFilenameRe` in `internal/tools/handlers.go`
+- Filenames are restricted to flat names (no path separators) to prevent path traversal
+
 ## Project Metadata
 
 - **GitHub:** `github.com/KenosInc/sigrok-mcp-server`
