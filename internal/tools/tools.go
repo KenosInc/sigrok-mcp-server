@@ -73,4 +73,19 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 		mcp.WithString("meta_output", mcp.Description("Decoder meta output filter (e.g. 'uart=baud')")),
 		mcp.WithBoolean("json_trace", mcp.Description("Output in Google Trace Event JSON format")),
 	), h.HandleDecodeProtocol)
+
+	srv.AddTool(mcp.NewTool("serial_query",
+		mcp.WithDescription(
+			"Send a command string over a serial port and return the device response. "+
+				"Works with any serial-attached instrument that accepts text commands (e.g. SCPI). "+
+				"Independent of sigrok-cli.",
+		),
+		mcp.WithString("port", mcp.Description("Serial device path (e.g. '/dev/ttyUSB0')"), mcp.Required()),
+		mcp.WithString("command", mcp.Description("Command to send (e.g. '*IDN?', 'MEAS:VOLT:DC?')"), mcp.Required()),
+		mcp.WithNumber("baudrate", mcp.Description("Baud rate (default 9600)")),
+		mcp.WithNumber("databits", mcp.Description("Data bits: 5, 6, 7, or 8 (default 8)")),
+		mcp.WithString("parity", mcp.Description("Parity: none, odd, even, mark, space (default 'none')")),
+		mcp.WithString("stopbits", mcp.Description("Stop bits: 1, 1.5, 2 (default '1')")),
+		mcp.WithNumber("timeout_ms", mcp.Description("Read timeout in milliseconds (default 1000)")),
+	), h.HandleSerialQuery)
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/KenosInc/sigrok-mcp-server/internal/config"
+	"github.com/KenosInc/sigrok-mcp-server/internal/serial"
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/KenosInc/sigrok-mcp-server/internal/tools"
 	"github.com/mark3labs/mcp-go/server"
@@ -13,7 +14,7 @@ import (
 func main() {
 	cfg := config.Load()
 	executor := sigrok.NewExecutor(cfg.SigrokCLIPath, cfg.Timeout, cfg.WorkingDir)
-	handlers := tools.NewHandlers(executor, config.FirmwareDirs())
+	handlers := tools.NewHandlers(executor, config.FirmwareDirs(), serial.NewPortQuerier())
 
 	srv := server.NewMCPServer("sigrok-mcp-server", "0.1.0")
 	tools.RegisterAll(srv, handlers)

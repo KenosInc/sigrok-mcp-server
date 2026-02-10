@@ -42,11 +42,13 @@ Written in Go. Licensed under MIT (Kenos, Inc.).
 - `cmd/sigrok-mcp-server/` — Entrypoint (`main.go`): wires config, executor, handlers, starts stdio server
 - `internal/config/` — Env-based configuration (`SIGROK_CLI_PATH`, `SIGROK_TIMEOUT_SECONDS`, `SIGROK_WORKING_DIR`)
 - `internal/sigrok/` — CLI executor (`Executor`) and output parsers; testdata/ contains golden output files
+- `internal/serial/` — Serial port querier for direct instrument communication (independent of sigrok-cli)
 - `internal/tools/` — MCP tool definitions (`tools.go`) and handler implementations (`handlers.go`)
 
 ## Key Dependencies
 
 - `github.com/mark3labs/mcp-go` — MCP protocol framework (tool registration, JSON-RPC stdio transport)
+- `go.bug.st/serial` — Cross-platform serial port library (pure Go on Linux)
 
 ## Environment Variables
 

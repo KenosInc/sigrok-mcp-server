@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/KenosInc/sigrok-mcp-server/internal/serial"
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -22,6 +23,12 @@ var validOptionRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:=,/-]*$`)
 // validFilenameRe matches safe filenames (no path separators).
 var validFilenameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// validPortRe matches serial port device paths.
+var validPortRe = regexp.MustCompile(`^/dev/tty[A-Za-z]+[0-9]+$`)
+
+// validCommandRe matches safe serial command strings (SCPI commands, etc.).
+var validCommandRe = regexp.MustCompile(`^[a-zA-Z0-9*:? ,.\-+]+$`)
+
 // Runner abstracts sigrok-cli command execution for testing.
 type Runner interface {
 	Run(ctx context.Context, args ...string) (*sigrok.CommandResult, error)
@@ -31,11 +38,12 @@ type Runner interface {
 type Handlers struct {
 	runner       Runner
 	firmwareDirs []string
+	serial       serial.Querier
 }
 
-// NewHandlers creates a new Handlers with the given executor and firmware directories.
-func NewHandlers(runner Runner, firmwareDirs []string) *Handlers {
-	return &Handlers{runner: runner, firmwareDirs: firmwareDirs}
+// NewHandlers creates a new Handlers with the given executor, firmware directories, and serial querier.
+func NewHandlers(runner Runner, firmwareDirs []string, serialQuerier serial.Querier) *Handlers {
+	return &Handlers{runner: runner, firmwareDirs: firmwareDirs, serial: serialQuerier}
 }
 
 // HandleListSupportedHardware returns all supported hardware drivers.
@@ -349,6 +357,68 @@ func (h *Handlers) HandleCheckFirmwareStatus(_ context.Context, _ mcp.CallToolRe
 	}
 
 	return jsonResult(status)
+}
+
+// HandleSerialQuery sends a command over a serial port and returns the response.
+func (h *Handlers) HandleSerialQuery(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if h.serial == nil {
+		return toolError("serial query is not available (no serial querier configured)"), nil
+	}
+
+	port := req.GetString("port", "")
+	if port == "" {
+		return toolError("missing required parameter: port"), nil
+	}
+	if !validPortRe.MatchString(port) {
+		return toolError("invalid port: must be a serial device path (e.g. '/dev/ttyUSB0')"), nil
+	}
+
+	command := req.GetString("command", "")
+	if command == "" {
+		return toolError("missing required parameter: command"), nil
+	}
+	if !validCommandRe.MatchString(command) {
+		return toolError("invalid command: must contain only alphanumeric characters, *, :, ?, spaces, commas, dots, hyphens, and plus signs"), nil
+	}
+
+	baudrate := int(req.GetFloat("baudrate", 9600))
+	if baudrate <= 0 {
+		return toolError("baudrate must be a positive number"), nil
+	}
+
+	databits := int(req.GetFloat("databits", 8))
+	if databits < 5 || databits > 8 {
+		return toolError("databits must be between 5 and 8"), nil
+	}
+
+	parity := req.GetString("parity", "none")
+	stopbits := req.GetString("stopbits", "1")
+
+	timeoutMs := int(req.GetFloat("timeout_ms", 1000))
+	if timeoutMs <= 0 {
+		return toolError("timeout_ms must be a positive number"), nil
+	}
+	const maxTimeoutMs = 30000
+	if timeoutMs > maxTimeoutMs {
+		return toolError("timeout_ms must not exceed 30000"), nil
+	}
+
+	opts := serial.QueryOptions{
+		Port:      port,
+		Command:   command,
+		BaudRate:  baudrate,
+		DataBits:  databits,
+		Parity:    parity,
+		StopBits:  stopbits,
+		TimeoutMs: timeoutMs,
+	}
+
+	result, err := h.serial.Query(ctx, opts)
+	if err != nil {
+		return toolError(fmt.Sprintf("serial query failed: %v", err)), nil
+	}
+
+	return jsonResult(result)
 }
 
 // isFirmwareError checks if an error message indicates a firmware-related failure.
