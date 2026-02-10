@@ -1,0 +1,29 @@
+{
+  "id": "owon-xdm1241",
+  "manufacturer": "OWON",
+  "model": "XDM1241",
+  "description": "4 1/2 digit bench-type digital multimeter with USB serial connectivity",
+  "idn_pattern": "OWON,XDM1241,",
+  "connection": {
+    "baudrate": 115200,
+    "databits": 8,
+    "parity": "none",
+    "stopbits": "1",
+    "timeout_ms": 3000
+  },
+  "commands": [
+    {"name": "*IDN?", "description": "Device identification (manufacturer, model, serial, firmware)", "example_response": "OWON,XDM1241,24412417,V4.3.0,3"},
+    {"name": "MEAS1?", "description": "Read main display measurement value", "example_response": "-2.758856E-05"},
+    {"name": "MEAS2?", "description": "Read sub display value (NONe if sub display is off)", "example_response": "NONe"},
+    {"name": "FUNC1?", "description": "Current measurement function on main display", "example_response": "\"VOLT\""},
+    {"name": "RANGE1?", "description": "Current range on main display", "example_response": "50 mV"},
+    {"name": "AUTO1?", "description": "Auto-range status on main display (1=on, 0=off)", "example_response": "1"},
+    {"name": "RATE?", "description": "Sampling rate (S=Slow, M=Medium, F=Fast)", "example_response": "S"}
+  ],
+  "notes": [
+    "Uses non-standard flat SCPI command set - no subsystem hierarchy",
+    "Standard SCPI commands like MEAS:VOLT:DC?, VOLT:RANG?, SYST:ERR? do NOT work",
+    "Display suffix: 1=main display, 2=sub display",
+    "Non-query commands return OK or nOK (firmware v25052021+)"
+  ]
+}
