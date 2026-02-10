@@ -512,7 +512,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 		}
 	}
 
-	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"})
+	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"}, nil, nil)
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -542,7 +542,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 }
 
 func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"})
+	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"}, nil, nil)
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -565,7 +565,7 @@ func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
 func TestHandlerExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil)
+	}, nil, nil, nil)
 
 	// Execution errors should be returned as tool errors (IsError=true),
 	// not as Go errors, so LLMs can see the failure message.
@@ -929,7 +929,7 @@ func TestHandleCaptureDataOverflowSamples(t *testing.T) {
 func TestHandleCaptureDataExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -951,7 +951,7 @@ func TestHandleCaptureDataNonZeroExit(t *testing.T) {
 			Stderr:   "Error: device not found",
 			ExitCode: 1,
 		},
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "fx2lafw",
@@ -974,7 +974,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 1,
 		},
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -996,7 +996,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 func TestHandleDecodeProtocolExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1018,7 +1018,7 @@ func TestHandleDecodeProtocolNonZeroExit(t *testing.T) {
 			Stderr:   "Error: input file not found",
 			ExitCode: 1,
 		},
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "missing.sr",
@@ -1041,7 +1041,7 @@ func TestHandleDecodeProtocolNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 2,
 		},
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1064,7 +1064,7 @@ func TestHandlerNonZeroExit(t *testing.T) {
 			Stderr:   "Error: unknown protocol decoder 'foo'.\n",
 			ExitCode: 1,
 		},
-	}, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": "foo"}))
 	if err != nil {
