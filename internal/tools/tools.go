@@ -48,7 +48,22 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 	), h.HandleShowVersion)
 
 	srv.AddTool(mcp.NewTool("scan_devices",
-		mcp.WithDescription("Scan for connected hardware devices. Returns {devices, warnings, hint} where devices is an array of {driver, description} objects. Warnings indicate firmware-related issues for devices that could not be initialized."),
+		mcp.WithDescription(
+			"Scan for connected hardware devices. Returns {devices, warnings, hint} "+
+				"where devices is an array of {driver, description} objects. "+
+				"Warnings indicate firmware-related issues for devices that could not be initialized.\n\n"+
+				"When driver and conn are provided, performs a targeted scan for a specific "+
+				"serial/network device (e.g. SCPI instruments). "+
+				"SCPI driver categories: 'scpi-dmm' (multimeters), 'scpi-pps' (power supplies), "+
+				"or vendor-specific drivers like 'rigol-ds' (oscilloscopes). "+
+				"Example: driver='scpi-dmm', conn='/dev/ttyUSB0:serialcomm=115200/8n1'.",
+		),
+		mcp.WithString("driver",
+			mcp.Description("Hardware driver ID for targeted scanning (e.g. 'scpi-dmm', 'scpi-pps', 'rigol-ds')"),
+		),
+		mcp.WithString("conn",
+			mcp.Description("Connection string for targeted scanning (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1', 'tcp-raw/192.168.1.100/5555')"),
+		),
 	), h.HandleScanDevices)
 
 	srv.AddTool(mcp.NewTool("check_firmware_status",
@@ -58,6 +73,7 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 	srv.AddTool(mcp.NewTool("capture_data",
 		mcp.WithDescription("Capture communication data from a connected device and save to file. Either 'samples' or 'time' must be specified."),
 		mcp.WithString("driver", mcp.Description("Hardware driver ID (e.g. 'fx2lafw', 'demo')"), mcp.Required()),
+		mcp.WithString("conn", mcp.Description("Connection string for serial/network devices (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1')")),
 		mcp.WithString("config", mcp.Description("Device configuration (e.g. 'samplerate=1M')")),
 		mcp.WithString("channels", mcp.Description("Channels to use (e.g. 'D0,D1,D2')")),
 		mcp.WithNumber("samples", mcp.Description("Number of samples to acquire")),

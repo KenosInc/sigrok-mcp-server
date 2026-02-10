@@ -512,7 +512,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 		}
 	}
 
-	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"})
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -542,7 +542,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 }
 
 func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"})
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -565,7 +565,7 @@ func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
 func TestHandlerExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil, nil)
+	}, nil)
 
 	// Execution errors should be returned as tool errors (IsError=true),
 	// not as Go errors, so LLMs can see the failure message.
@@ -929,7 +929,7 @@ func TestHandleCaptureDataOverflowSamples(t *testing.T) {
 func TestHandleCaptureDataExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -951,7 +951,7 @@ func TestHandleCaptureDataNonZeroExit(t *testing.T) {
 			Stderr:   "Error: device not found",
 			ExitCode: 1,
 		},
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "fx2lafw",
@@ -974,7 +974,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 1,
 		},
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -996,7 +996,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 func TestHandleDecodeProtocolExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1018,7 +1018,7 @@ func TestHandleDecodeProtocolNonZeroExit(t *testing.T) {
 			Stderr:   "Error: input file not found",
 			ExitCode: 1,
 		},
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "missing.sr",
@@ -1041,7 +1041,7 @@ func TestHandleDecodeProtocolNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 2,
 		},
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1064,7 +1064,7 @@ func TestHandlerNonZeroExit(t *testing.T) {
 			Stderr:   "Error: unknown protocol decoder 'foo'.\n",
 			ExitCode: 1,
 		},
-	}, nil, nil, nil)
+	}, nil)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": "foo"}))
 	if err != nil {
@@ -1074,6 +1074,233 @@ func TestHandlerNonZeroExit(t *testing.T) {
 	assertTextResult(t, result, true)
 }
 
+// --- validConnRe tests ---
+
+func TestIsValidConn(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		// Valid serial devices
+		{"ttyUSB0", "/dev/ttyUSB0", true},
+		{"ttyUSB1", "/dev/ttyUSB1", true},
+		{"ttyACM0", "/dev/ttyACM0", true},
+		{"ttyS0", "/dev/ttyS0", true},
+		{"serial with params", "/dev/ttyUSB0:serialcomm=115200/8n1", true},
+		{"serial 9600 baud", "/dev/ttyS0:serialcomm=9600/8n1", true},
+		{"serial 7e2", "/dev/ttyUSB0:serialcomm=19200/7e2", true},
+
+		// Valid network connections
+		{"tcp-raw IP", "tcp-raw/192.168.1.100/5555", true},
+		{"tcp IP", "tcp/192.168.1.100/5555", true},
+		{"vxi IP", "vxi/192.168.1.100", true},
+		{"usbtmc", "usbtmc/1a86.7523", true},
+
+		// Invalid: path traversal
+		{"path traversal dot-dot", "/dev/../etc/passwd", false},
+		{"tcp path traversal", "tcp/../../../etc/passwd", false},
+		{"vxi path traversal", "vxi/192.168.1.100/../../etc/passwd", false},
+
+		// Invalid: shell metacharacters
+		{"semicolon", "/dev/ttyUSB0;rm -rf /", false},
+		{"backtick", "/dev/ttyUSB0`whoami`", false},
+		{"dollar", "/dev/ttyUSB0$(cmd)", false},
+		{"pipe", "/dev/ttyUSB0|cat", false},
+		{"ampersand", "/dev/ttyUSB0&bg", false},
+		{"space", "/dev/tty USB0", false},
+
+		// Invalid: arbitrary paths
+		{"etc passwd", "/etc/passwd", false},
+		{"home dir", "/home/user/file", false},
+		{"tmp file", "/tmp/evil", false},
+
+		// Invalid: empty/malformed
+		{"empty string", "", false},
+		{"just slash", "/", false},
+		{"bare device name", "ttyUSB0", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isValidConn(tt.input)
+			if got != tt.want {
+				t.Errorf("isValidConn(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+// --- scan_devices with driver/conn tests ---
+
+func TestHandleScanDevicesWithDriverAndConn(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "The following devices were found:\nscpi-dmm - OWON XDM1241\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", map[string]any{
+		"driver": "scpi-dmm",
+		"conn":   "/dev/ttyUSB0:serialcomm=115200/8n1",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-d", "scpi-dmm:conn=/dev/ttyUSB0:serialcomm=115200/8n1", "--scan"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	text := assertTextResult(t, result, false)
+	var scanResult sigrok.ScanResult
+	if err := json.Unmarshal([]byte(text), &scanResult); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if len(scanResult.Devices) != 1 {
+		t.Fatalf("expected 1 device, got %d", len(scanResult.Devices))
+	}
+}
+
+func TestHandleScanDevicesWithDriverOnly(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "The following devices were found:\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	_, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", map[string]any{
+		"driver": "scpi-dmm",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-d", "scpi-dmm", "--scan"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+}
+
+func TestHandleScanDevicesConnWithoutDriver(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", map[string]any{
+		"conn": "/dev/ttyUSB0",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "'conn' requires 'driver'") {
+		t.Errorf("expected conn-requires-driver error, got %q", text)
+	}
+}
+
+func TestHandleScanDevicesInvalidConn(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	tests := []struct {
+		name string
+		conn string
+	}{
+		{"path traversal", "/dev/../etc/passwd"},
+		{"arbitrary path", "/etc/shadow"},
+		{"shell injection", "/dev/ttyUSB0;rm -rf /"},
+		{"command substitution", "/dev/ttyUSB0$(whoami)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", map[string]any{
+				"driver": "scpi-dmm",
+				"conn":   tt.conn,
+			}))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertTextResult(t, result, true)
+		})
+	}
+}
+
+func TestHandleScanDevicesInvalidDriver(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", map[string]any{
+		"driver": "--evil-flag",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertTextResult(t, result, true)
+}
+
+func TestHandleScanDevicesBackwardCompatibility(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "The following devices were found:\ndemo - Demo device with 13 channels\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	_, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", nil))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !reflect.DeepEqual(mock.gotArgs, []string{"--scan"}) {
+		t.Errorf("args = %v, want [--scan]", mock.gotArgs)
+	}
+}
+
+// --- capture_data with conn tests ---
+
+func TestHandleCaptureDataWithConn(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{Stdout: "", ExitCode: 0},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "scpi-dmm",
+		"conn":    "/dev/ttyUSB0:serialcomm=115200/8n1",
+		"samples": float64(10),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if mock.gotArgs[0] != "-d" {
+		t.Fatalf("expected -d, got %s", mock.gotArgs[0])
+	}
+	if mock.gotArgs[1] != "scpi-dmm:conn=/dev/ttyUSB0:serialcomm=115200/8n1" {
+		t.Errorf("driver arg = %q, want %q", mock.gotArgs[1], "scpi-dmm:conn=/dev/ttyUSB0:serialcomm=115200/8n1")
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleCaptureDataInvalidConn(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "scpi-dmm",
+		"conn":    "/etc/passwd",
+		"samples": float64(10),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertTextResult(t, result, true)
+}
 // --- serial_query tests ---
 
 // mockQuerier implements serial.Querier for testing.
