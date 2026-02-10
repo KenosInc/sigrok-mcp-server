@@ -34,3 +34,6 @@ go.work.sum
 # Claude Code local settings
 CLAUDE.local.md
 .claude/settings.local.json
+
+# Sigrok
+.sigrok-firmware
