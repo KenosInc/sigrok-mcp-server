@@ -24,6 +24,23 @@ var validOptionRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:=,/-]*$`)
 // validFilenameRe matches safe filenames (no path separators).
 var validFilenameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// validConnRe matches connection strings for sigrok-cli.
+// Supports:
+//   - Serial devices: /dev/ttyUSB0, /dev/ttyACM0, /dev/ttyS0
+//   - Serial with params: /dev/ttyUSB0:serialcomm=115200/8n1
+//   - TCP connections: tcp-raw/192.168.1.100/5555
+//   - VXI connections: vxi/192.168.1.100
+//   - USB TMC: usbtmc/1a86.7523
+//
+// Path traversal (..) and shell metacharacters are rejected.
+var validConnRe = regexp.MustCompile(
+	`^(?:` +
+		`/dev/tty[A-Za-z0-9]+(?::serialcomm=[0-9]+/[0-9][a-zA-Z][0-9])?` +
+		`|` +
+		`(?:tcp-raw|tcp|vxi|usbtmc)/[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*` +
+		`)$`,
+)
+
 // validPortRe matches serial port device paths.
 var validPortRe = regexp.MustCompile(`^/dev/tty[A-Za-z]+[0-9]+$`)
 
@@ -143,8 +160,32 @@ func (h *Handlers) HandleShowVersion(ctx context.Context, _ mcp.CallToolRequest)
 }
 
 // HandleScanDevices scans for connected hardware devices.
-func (h *Handlers) HandleScanDevices(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	result, err := h.runner.Run(ctx, "--scan")
+// Optionally accepts driver and conn for targeted serial/network device scanning.
+func (h *Handlers) HandleScanDevices(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	driver := req.GetString("driver", "")
+	conn := req.GetString("conn", "")
+
+	if driver != "" && !validIDRe.MatchString(driver) {
+		return toolError("invalid driver: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
+	if conn != "" && driver == "" {
+		return toolError("'conn' requires 'driver' to be specified"), nil
+	}
+	if conn != "" && !isValidConn(conn) {
+		return toolError("invalid conn: must be a serial device path (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1') or network address (e.g. 'tcp-raw/192.168.1.100/5555')"), nil
+	}
+
+	args := []string{}
+	if driver != "" {
+		driverArg := driver
+		if conn != "" {
+			driverArg = driver + ":conn=" + conn
+		}
+		args = append(args, "-d", driverArg)
+	}
+	args = append(args, "--scan")
+
+	result, err := h.runner.Run(ctx, args...)
 	if err != nil {
 		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
@@ -176,6 +217,11 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 	}
 	if !validIDRe.MatchString(driver) {
 		return toolError("invalid driver: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
+
+	conn := req.GetString("conn", "")
+	if conn != "" && !isValidConn(conn) {
+		return toolError("invalid conn: must be a serial device path (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1') or network address (e.g. 'tcp-raw/192.168.1.100/5555')"), nil
 	}
 
 	samples := req.GetFloat("samples", 0)
@@ -222,7 +268,11 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 		outputFile = "capture_" + time.Now().UTC().Format("20060102_150405") + ".sr"
 	}
 
-	args := []string{"-d", driver}
+	driverArg := driver
+	if conn != "" {
+		driverArg = driver + ":conn=" + conn
+	}
+	args := []string{"-d", driverArg}
 	if config != "" {
 		args = append(args, "-c", config)
 	}
@@ -450,6 +500,15 @@ func (h *Handlers) HandleGetDeviceProfile(_ context.Context, req mcp.CallToolReq
 		Matches: matches,
 		Count:   len(matches),
 	})
+}
+
+// isValidConn checks whether a connection string is safe and matches expected formats.
+// Combines regex matching with an explicit path traversal check.
+func isValidConn(s string) bool {
+	if strings.Contains(s, "..") {
+		return false
+	}
+	return validConnRe.MatchString(s)
 }
 
 // isFirmwareError checks if an error message indicates a firmware-related failure.
