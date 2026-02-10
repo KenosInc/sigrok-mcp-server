@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/KenosInc/sigrok-mcp-server/internal/devices"
 	"github.com/KenosInc/sigrok-mcp-server/internal/serial"
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -29,6 +30,9 @@ var validPortRe = regexp.MustCompile(`^/dev/tty[A-Za-z]+[0-9]+$`)
 // validCommandRe matches safe serial command strings (SCPI commands, etc.).
 var validCommandRe = regexp.MustCompile(`^[a-zA-Z0-9*:? ,.\-+]+$`)
 
+// validQueryRe matches device profile query strings (device names, models, *IDN? responses).
+var validQueryRe = regexp.MustCompile(`^[a-zA-Z0-9*][a-zA-Z0-9 ._:,/*-]*$`)
+
 // Runner abstracts sigrok-cli command execution for testing.
 type Runner interface {
 	Run(ctx context.Context, args ...string) (*sigrok.CommandResult, error)
@@ -39,11 +43,12 @@ type Handlers struct {
 	runner       Runner
 	firmwareDirs []string
 	serial       serial.Querier
+	devices      *devices.Registry
 }
 
-// NewHandlers creates a new Handlers with the given executor, firmware directories, and serial querier.
-func NewHandlers(runner Runner, firmwareDirs []string, serialQuerier serial.Querier) *Handlers {
-	return &Handlers{runner: runner, firmwareDirs: firmwareDirs, serial: serialQuerier}
+// NewHandlers creates a new Handlers with the given executor, firmware directories, serial querier, and device registry.
+func NewHandlers(runner Runner, firmwareDirs []string, serialQuerier serial.Querier, deviceRegistry *devices.Registry) *Handlers {
+	return &Handlers{runner: runner, firmwareDirs: firmwareDirs, serial: serialQuerier, devices: deviceRegistry}
 }
 
 // HandleListSupportedHardware returns all supported hardware drivers.
@@ -419,6 +424,32 @@ func (h *Handlers) HandleSerialQuery(ctx context.Context, req mcp.CallToolReques
 	}
 
 	return jsonResult(result)
+}
+
+// HandleGetDeviceProfile looks up a device profile by name, model, manufacturer, or *IDN? response.
+func (h *Handlers) HandleGetDeviceProfile(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if h.devices == nil {
+		return toolError("device profiles are not available (no device registry configured)"), nil
+	}
+
+	query := req.GetString("query", "")
+	if query == "" {
+		return toolError("missing required parameter: query"), nil
+	}
+	if !validQueryRe.MatchString(query) {
+		return toolError("invalid query: must contain only alphanumeric characters, spaces, dots, underscores, colons, commas, slashes, asterisks, and hyphens"), nil
+	}
+
+	matches := h.devices.Lookup(query)
+	return jsonResult(struct {
+		Query   string             `json:"query"`
+		Matches []*devices.Profile `json:"matches"`
+		Count   int                `json:"count"`
+	}{
+		Query:   query,
+		Matches: matches,
+		Count:   len(matches),
+	})
 }
 
 // isFirmwareError checks if an error message indicates a firmware-related failure.

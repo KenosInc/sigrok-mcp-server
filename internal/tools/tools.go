@@ -1,6 +1,10 @@
 package tools
 
 import (
+	"context"
+	"encoding/json"
+
+	"github.com/KenosInc/sigrok-mcp-server/internal/devices"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
@@ -88,4 +92,49 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 		mcp.WithString("stopbits", mcp.Description("Stop bits: 1, 1.5, 2 (default '1')")),
 		mcp.WithNumber("timeout_ms", mcp.Description("Read timeout in milliseconds (default 1000)")),
 	), h.HandleSerialQuery)
+
+	srv.AddTool(mcp.NewTool("get_device_profile",
+		mcp.WithDescription(
+			"Look up a device profile by name, model, manufacturer, or *IDN? response string. "+
+				"Returns connection settings (baudrate, parity, etc.), supported commands with examples, "+
+				"and device-specific notes. Use this before serial_query to get the correct settings for a device.",
+		),
+		mcp.WithString("query",
+			mcp.Description("Device name, model, manufacturer, or *IDN? response string to match against"),
+			mcp.Required(),
+		),
+	), h.HandleGetDeviceProfile)
+}
+
+// RegisterResources registers device profiles as MCP resources for discovery.
+func RegisterResources(srv *server.MCPServer, registry *devices.Registry) {
+	if registry == nil {
+		return
+	}
+	for _, p := range registry.List() {
+		profile := p // capture loop variable
+		uri := "device://" + profile.ID
+
+		srv.AddResource(
+			mcp.NewResource(
+				uri,
+				profile.Manufacturer+" "+profile.Model,
+				mcp.WithResourceDescription(profile.Description),
+				mcp.WithMIMEType("application/json"),
+			),
+			func(_ context.Context, _ mcp.ReadResourceRequest) ([]mcp.ResourceContents, error) {
+				data, err := json.Marshal(profile)
+				if err != nil {
+					return nil, err
+				}
+				return []mcp.ResourceContents{
+					mcp.TextResourceContents{
+						URI:      uri,
+						MIMEType: "application/json",
+						Text:     string(data),
+					},
+				}, nil
+			},
+		)
+	}
 }

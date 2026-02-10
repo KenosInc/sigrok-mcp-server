@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/KenosInc/sigrok-mcp-server/internal/devices"
 	"github.com/KenosInc/sigrok-mcp-server/internal/serial"
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -56,7 +57,7 @@ func assertTextResult(t *testing.T, result *mcp.CallToolResult, errExpected bool
 
 func TestRegisterAll(t *testing.T) {
 	srv := server.NewMCPServer("test", "0.0.1")
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 	RegisterAll(srv, h)
 
 	ctx := context.Background()
@@ -108,6 +109,7 @@ func TestRegisterAll(t *testing.T) {
 		"decode_protocol":         true,
 		"check_firmware_status":   true,
 		"serial_query":            true,
+		"get_device_profile":      true,
 	}
 
 	if len(parsed.Result.Tools) != len(wantTools) {
@@ -146,6 +148,10 @@ func TestRegisterAll(t *testing.T) {
 			if !contains(tool.InputSchema.Required, "command") {
 				t.Errorf("serial_query missing required param 'command'")
 			}
+		case "get_device_profile":
+			if !contains(tool.InputSchema.Required, "query") {
+				t.Errorf("get_device_profile missing required param 'query'")
+			}
 		}
 	}
 }
@@ -166,7 +172,7 @@ func TestHandleShowVersion(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleShowVersion(context.Background(), makeRequest("show_version", nil))
 	if err != nil {
@@ -194,7 +200,7 @@ func TestHandleListSupportedHardware(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleListSupportedHardware(context.Background(), makeRequest("list_supported_hardware", nil))
 	if err != nil {
@@ -225,7 +231,7 @@ func TestHandleListSupportedDecoders(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleListSupportedDecoders(context.Background(), makeRequest("list_supported_decoders", nil))
 	if err != nil {
@@ -253,7 +259,7 @@ func TestHandleListInputFormats(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleListInputFormats(context.Background(), makeRequest("list_input_formats", nil))
 	if err != nil {
@@ -281,7 +287,7 @@ func TestHandleListOutputFormats(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleListOutputFormats(context.Background(), makeRequest("list_output_formats", nil))
 	if err != nil {
@@ -309,7 +315,7 @@ func TestHandleShowDecoderDetails(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": "uart"}))
 	if err != nil {
@@ -331,7 +337,7 @@ func TestHandleShowDecoderDetails(t *testing.T) {
 }
 
 func TestHandleShowDecoderDetailsMissingParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", nil))
 	if err != nil {
@@ -342,7 +348,7 @@ func TestHandleShowDecoderDetailsMissingParam(t *testing.T) {
 }
 
 func TestHandleShowDecoderDetailsInvalidParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	tests := []struct {
 		name    string
@@ -370,7 +376,7 @@ func TestHandleShowDriverDetails(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleShowDriverDetails(context.Background(), makeRequest("show_driver_details", map[string]any{"driver": "demo"}))
 	if err != nil {
@@ -392,7 +398,7 @@ func TestHandleShowDriverDetails(t *testing.T) {
 }
 
 func TestHandleShowDriverDetailsMissingParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleShowDriverDetails(context.Background(), makeRequest("show_driver_details", nil))
 	if err != nil {
@@ -403,7 +409,7 @@ func TestHandleShowDriverDetailsMissingParam(t *testing.T) {
 }
 
 func TestHandleShowDriverDetailsInvalidParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleShowDriverDetails(context.Background(), makeRequest("show_driver_details", map[string]any{"driver": "--evil-flag"}))
 	if err != nil {
@@ -420,7 +426,7 @@ func TestHandleScanDevices(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", nil))
 	if err != nil {
@@ -455,7 +461,7 @@ func TestHandleScanDevicesWithFirmwareWarnings(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", nil))
 	if err != nil {
@@ -482,7 +488,7 @@ func TestHandleScanDevicesFirmwareError(t *testing.T) {
 			ExitCode: 1,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleScanDevices(context.Background(), makeRequest("scan_devices", nil))
 	if err != nil {
@@ -506,7 +512,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 		}
 	}
 
-	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"}, nil)
+	h := NewHandlers(&mockExecutor{}, []string{tmpDir, "/nonexistent/path"}, nil, nil)
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -536,7 +542,7 @@ func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 }
 
 func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"}, nil)
+	h := NewHandlers(&mockExecutor{}, []string{"/nonexistent/path1", "/nonexistent/path2"}, nil, nil)
 
 	result, err := h.HandleCheckFirmwareStatus(context.Background(), makeRequest("check_firmware_status", nil))
 	if err != nil {
@@ -559,7 +565,7 @@ func TestHandleCheckFirmwareStatusEmpty(t *testing.T) {
 func TestHandlerExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	// Execution errors should be returned as tool errors (IsError=true),
 	// not as Go errors, so LLMs can see the failure message.
@@ -581,7 +587,7 @@ func TestHandleCaptureData(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "fx2lafw",
@@ -622,7 +628,7 @@ func TestHandleCaptureDataWithAllOptions(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":       "demo",
@@ -663,7 +669,7 @@ func TestHandleCaptureDataWithAllOptions(t *testing.T) {
 }
 
 func TestHandleCaptureDataMissingDriver(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"samples": float64(1000),
@@ -675,7 +681,7 @@ func TestHandleCaptureDataMissingDriver(t *testing.T) {
 }
 
 func TestHandleCaptureDataMissingSamplesAndTime(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver": "demo",
@@ -687,7 +693,7 @@ func TestHandleCaptureDataMissingSamplesAndTime(t *testing.T) {
 }
 
 func TestHandleCaptureDataInvalidParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -718,7 +724,7 @@ func TestHandleDecodeProtocol(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -753,7 +759,7 @@ func TestHandleDecodeProtocolWithAllOptions(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":          "capture.sr",
@@ -792,7 +798,7 @@ func TestHandleDecodeProtocolWithAllOptions(t *testing.T) {
 }
 
 func TestHandleDecodeProtocolMissingParams(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -814,7 +820,7 @@ func TestHandleDecodeProtocolMissingParams(t *testing.T) {
 }
 
 func TestHandleDecodeProtocolInvalidParam(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	tests := []struct {
 		name string
@@ -844,7 +850,7 @@ func TestHandleCaptureDataTimeOnly(t *testing.T) {
 			ExitCode: 0,
 		},
 	}
-	h := NewHandlers(mock, nil, nil)
+	h := NewHandlers(mock, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver": "demo",
@@ -874,7 +880,7 @@ func TestHandleCaptureDataTimeOnly(t *testing.T) {
 }
 
 func TestHandleCaptureDataNegativeSamples(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -891,7 +897,7 @@ func TestHandleCaptureDataNegativeSamples(t *testing.T) {
 }
 
 func TestHandleCaptureDataNegativeTime(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -908,7 +914,7 @@ func TestHandleCaptureDataNegativeTime(t *testing.T) {
 }
 
 func TestHandleCaptureDataOverflowSamples(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -923,7 +929,7 @@ func TestHandleCaptureDataOverflowSamples(t *testing.T) {
 func TestHandleCaptureDataExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -945,7 +951,7 @@ func TestHandleCaptureDataNonZeroExit(t *testing.T) {
 			Stderr:   "Error: device not found",
 			ExitCode: 1,
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "fx2lafw",
@@ -968,7 +974,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 1,
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
 		"driver":  "demo",
@@ -990,7 +996,7 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 func TestHandleDecodeProtocolExecutionError(t *testing.T) {
 	h := NewHandlers(&mockExecutor{
 		err: errors.New("binary not found"),
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1012,7 +1018,7 @@ func TestHandleDecodeProtocolNonZeroExit(t *testing.T) {
 			Stderr:   "Error: input file not found",
 			ExitCode: 1,
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "missing.sr",
@@ -1035,7 +1041,7 @@ func TestHandleDecodeProtocolNonZeroExitEmptyStderr(t *testing.T) {
 			Stderr:   "",
 			ExitCode: 2,
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleDecodeProtocol(context.Background(), makeRequest("decode_protocol", map[string]any{
 		"input_file":        "capture.sr",
@@ -1058,7 +1064,7 @@ func TestHandlerNonZeroExit(t *testing.T) {
 			Stderr:   "Error: unknown protocol decoder 'foo'.\n",
 			ExitCode: 1,
 		},
-	}, nil, nil)
+	}, nil, nil, nil)
 
 	result, err := h.HandleShowDecoderDetails(context.Background(), makeRequest("show_decoder_details", map[string]any{"decoder": "foo"}))
 	if err != nil {
@@ -1086,7 +1092,7 @@ func TestHandleSerialQueryHappyPath(t *testing.T) {
 	mq := &mockQuerier{
 		result: &serial.QueryResult{Response: "OWON,XDM1241,1234567,V1.0"},
 	}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	result, err := h.HandleSerialQuery(context.Background(), makeRequest("serial_query", map[string]any{
 		"port":       "/dev/ttyUSB0",
@@ -1127,7 +1133,7 @@ func TestHandleSerialQueryDefaults(t *testing.T) {
 	mq := &mockQuerier{
 		result: &serial.QueryResult{Response: "+1.234E+00"},
 	}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	result, err := h.HandleSerialQuery(context.Background(), makeRequest("serial_query", map[string]any{
 		"port":    "/dev/ttyUSB0",
@@ -1159,7 +1165,7 @@ func TestHandleSerialQueryDefaults(t *testing.T) {
 
 func TestHandleSerialQueryMissingParams(t *testing.T) {
 	mq := &mockQuerier{result: &serial.QueryResult{Response: "ok"}}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	tests := []struct {
 		name string
@@ -1182,7 +1188,7 @@ func TestHandleSerialQueryMissingParams(t *testing.T) {
 
 func TestHandleSerialQueryInvalidPort(t *testing.T) {
 	mq := &mockQuerier{result: &serial.QueryResult{Response: "ok"}}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	tests := []struct {
 		name string
@@ -1210,7 +1216,7 @@ func TestHandleSerialQueryInvalidPort(t *testing.T) {
 
 func TestHandleSerialQueryInvalidCommand(t *testing.T) {
 	mq := &mockQuerier{result: &serial.QueryResult{Response: "ok"}}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	tests := []struct {
 		name    string
@@ -1237,7 +1243,7 @@ func TestHandleSerialQueryInvalidCommand(t *testing.T) {
 
 func TestHandleSerialQueryInvalidNumericParams(t *testing.T) {
 	mq := &mockQuerier{result: &serial.QueryResult{Response: "ok"}}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	tests := []struct {
 		name string
@@ -1266,7 +1272,7 @@ func TestHandleSerialQueryDeviceError(t *testing.T) {
 	mq := &mockQuerier{
 		err: errors.New("open port /dev/ttyUSB0: permission denied"),
 	}
-	h := NewHandlers(&mockExecutor{}, nil, mq)
+	h := NewHandlers(&mockExecutor{}, nil, mq, nil)
 
 	result, err := h.HandleSerialQuery(context.Background(), makeRequest("serial_query", map[string]any{
 		"port":    "/dev/ttyUSB0",
@@ -1283,11 +1289,170 @@ func TestHandleSerialQueryDeviceError(t *testing.T) {
 }
 
 func TestHandleSerialQueryNilQuerier(t *testing.T) {
-	h := NewHandlers(&mockExecutor{}, nil, nil)
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleSerialQuery(context.Background(), makeRequest("serial_query", map[string]any{
 		"port":    "/dev/ttyUSB0",
 		"command": "*IDN?",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "not available") {
+		t.Errorf("expected 'not available' error, got %q", text)
+	}
+}
+
+// --- get_device_profile tests ---
+
+func testDeviceRegistry() *devices.Registry {
+	return devices.NewRegistry([]*devices.Profile{
+		{
+			ID:           "owon-xdm1241",
+			Manufacturer: "OWON",
+			Model:        "XDM1241",
+			Description:  "4 1/2 digit bench-type digital multimeter",
+			IDNPattern:   "OWON,XDM1241,",
+			Connection: devices.Connection{
+				BaudRate:  115200,
+				DataBits:  8,
+				Parity:    "none",
+				StopBits:  "1",
+				TimeoutMs: 3000,
+			},
+			Commands: []devices.Command{
+				{Name: "*IDN?", Description: "Device identification", ExampleResponse: "OWON,XDM1241,24412417,V4.3.0,3"},
+			},
+			Notes: []string{"Uses non-standard flat SCPI command set"},
+		},
+	})
+}
+
+func TestHandleGetDeviceProfileHappyPath(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, testDeviceRegistry())
+
+	result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{
+		"query": "XDM1241",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed struct {
+		Query   string `json:"query"`
+		Count   int    `json:"count"`
+		Matches []struct {
+			ID    string `json:"id"`
+			Model string `json:"model"`
+		} `json:"matches"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Count != 1 {
+		t.Fatalf("count = %d, want 1", parsed.Count)
+	}
+	if parsed.Matches[0].ID != "owon-xdm1241" {
+		t.Errorf("match ID = %q, want %q", parsed.Matches[0].ID, "owon-xdm1241")
+	}
+	if parsed.Query != "XDM1241" {
+		t.Errorf("query = %q, want %q", parsed.Query, "XDM1241")
+	}
+}
+
+func TestHandleGetDeviceProfileIDNMatch(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, testDeviceRegistry())
+
+	result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{
+		"query": "OWON,XDM1241,24412417,V4.3.0,3",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed struct {
+		Count   int `json:"count"`
+		Matches []struct {
+			ID string `json:"id"`
+		} `json:"matches"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Count != 1 {
+		t.Fatalf("count = %d, want 1", parsed.Count)
+	}
+	if parsed.Matches[0].ID != "owon-xdm1241" {
+		t.Errorf("match ID = %q, want %q", parsed.Matches[0].ID, "owon-xdm1241")
+	}
+}
+
+func TestHandleGetDeviceProfileNoMatch(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, testDeviceRegistry())
+
+	result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{
+		"query": "Keysight",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Count != 0 {
+		t.Errorf("count = %d, want 0", parsed.Count)
+	}
+}
+
+func TestHandleGetDeviceProfileMissingQuery(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, testDeviceRegistry())
+
+	result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertTextResult(t, result, true)
+}
+
+func TestHandleGetDeviceProfileInvalidQuery(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, testDeviceRegistry())
+
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"shell injection", ";rm -rf /"},
+		{"command substitution", "$(whoami)"},
+		{"backtick", "`whoami`"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{
+				"query": tt.query,
+			}))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertTextResult(t, result, true)
+		})
+	}
+}
+
+func TestHandleGetDeviceProfileNilRegistry(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleGetDeviceProfile(context.Background(), makeRequest("get_device_profile", map[string]any{
+		"query": "XDM1241",
 	}))
 	if err != nil {
 		t.Fatalf("unexpected Go error: %v", err)

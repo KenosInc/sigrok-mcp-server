@@ -43,6 +43,7 @@ Written in Go. Licensed under MIT (Kenos, Inc.).
 - `internal/config/` — Env-based configuration (`SIGROK_CLI_PATH`, `SIGROK_TIMEOUT_SECONDS`, `SIGROK_WORKING_DIR`)
 - `internal/sigrok/` — CLI executor (`Executor`) and output parsers; testdata/ contains golden output files
 - `internal/serial/` — Serial port querier for direct instrument communication (independent of sigrok-cli)
+- `internal/devices/` — Device profile registry with embedded JSON profiles; supports lookup by name, model, or `*IDN?` response
 - `internal/tools/` — MCP tool definitions (`tools.go`) and handler implementations (`handlers.go`)
 
 ## Key Dependencies
