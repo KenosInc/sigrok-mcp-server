@@ -44,8 +44,12 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 	), h.HandleShowVersion)
 
 	srv.AddTool(mcp.NewTool("scan_devices",
-		mcp.WithDescription("Scan for connected hardware devices. Returns an array of {driver, description} objects."),
+		mcp.WithDescription("Scan for connected hardware devices. Returns {devices, warnings, hint} where devices is an array of {driver, description} objects. Warnings indicate firmware-related issues for devices that could not be initialized."),
 	), h.HandleScanDevices)
+
+	srv.AddTool(mcp.NewTool("check_firmware_status",
+		mcp.WithDescription("Check firmware file availability in standard sigrok firmware directories. Returns which directories exist and what firmware files are present. Use this to diagnose device detection issues caused by missing firmware."),
+	), h.HandleCheckFirmwareStatus)
 
 	srv.AddTool(mcp.NewTool("capture_data",
 		mcp.WithDescription("Capture communication data from a connected device and save to file. Either 'samples' or 'time' must be specified."),

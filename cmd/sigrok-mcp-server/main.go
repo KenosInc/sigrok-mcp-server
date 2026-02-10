@@ -13,7 +13,7 @@ import (
 func main() {
 	cfg := config.Load()
 	executor := sigrok.NewExecutor(cfg.SigrokCLIPath, cfg.Timeout, cfg.WorkingDir)
-	handlers := tools.NewHandlers(executor)
+	handlers := tools.NewHandlers(executor, config.FirmwareDirs())
 
 	srv := server.NewMCPServer("sigrok-mcp-server", "0.1.0")
 	tools.RegisterAll(srv, handlers)
