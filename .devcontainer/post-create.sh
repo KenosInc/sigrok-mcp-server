@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # Claude Code needs write access to the config and claude directories
-chown -R vscode:vscode /home/vscode/.config
-chown -R vscode:vscode /home/vscode/.claude
+sudo chown -R vscode:vscode /home/vscode/.config
+sudo chown -R vscode:vscode /home/vscode/.claude
 
 # Claude Code skip onboarding
 if [ ! -f "$HOME/.claude.json" ]; then
