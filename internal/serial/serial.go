@@ -66,7 +66,7 @@ func (q *PortQuerier) Query(ctx context.Context, opts QueryOptions) (*QueryResul
 	if err != nil {
 		return nil, fmt.Errorf("open port %s: %w", opts.Port, err)
 	}
-	defer port.Close()
+	defer func() { _ = port.Close() }()
 
 	timeout := time.Duration(opts.TimeoutMs) * time.Millisecond
 	if err := port.SetReadTimeout(timeout); err != nil {
