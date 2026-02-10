@@ -57,6 +57,27 @@ type DecodeResult struct {
 	Format string `json:"format"`
 }
 
+// ScanResult holds the result of a scan_devices operation.
+type ScanResult struct {
+	Devices  []ScannedDevice `json:"devices"`
+	Warnings []string        `json:"warnings,omitempty"`
+	Hint     string          `json:"hint,omitempty"`
+}
+
+// FirmwareStatus holds the result of a firmware directory check.
+type FirmwareStatus struct {
+	Directories []FirmwareDirectory `json:"directories"`
+	TotalFiles  int                 `json:"total_files"`
+	Hint        string              `json:"hint,omitempty"`
+}
+
+// FirmwareDirectory describes a single firmware search directory.
+type FirmwareDirectory struct {
+	Path   string   `json:"path"`
+	Exists bool     `json:"exists"`
+	Files  []string `json:"files,omitempty"`
+}
+
 // ParseListSection extracts items from a named section of sigrok-cli -L output.
 // sectionHeader should match the full header line, e.g. "Supported hardware drivers:".
 func ParseListSection(output, sectionHeader string) []ListItem {

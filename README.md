@@ -16,6 +16,7 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 | `scan_devices` | Scan for connected hardware devices |
 | `capture_data` | Capture communication data from a device and save to file |
 | `decode_protocol` | Decode protocol data from a captured file using protocol decoders |
+| `check_firmware_status` | Check firmware file availability in sigrok firmware directories |
 
 ## Quickstart
 
@@ -64,7 +65,7 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-To pass a USB device through to the container:
+To access USB devices from the container:
 
 ```json
 {
@@ -77,11 +78,42 @@ To pass a USB device through to the container:
 }
 ```
 
+To also provide firmware files for devices that require them (e.g. Kingst LA2016):
+
+```json
+{
+  "mcpServers": {
+    "sigrok": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm", "--privileged",
+        "-v", "/path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro",
+        "sigrok-mcp-server"
+      ]
+    }
+  }
+}
+```
+
 ### Claude Code
 
 ```bash
 claude mcp add sigrok -- docker run -i --rm sigrok-mcp-server
 ```
+
+With USB access and firmware:
+
+```bash
+claude mcp add sigrok -- docker run -i --rm --privileged -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro sigrok-mcp-server
+```
+
+## Firmware
+
+Some hardware drivers require firmware files that cannot be bundled with this server due to licensing restrictions. The server works without firmware for devices that don't need it (e.g. `demo`, protocol-only analysis). For devices that require firmware (e.g. Kingst LA2016, Saleae Logic16), mount your firmware directory into the container at `/usr/local/share/sigrok-firmware`.
+
+Use the `check_firmware_status` tool to verify firmware availability and diagnose device detection issues.
+
+See the [sigrok wiki](https://sigrok.org/wiki/Firmware) for firmware extraction instructions for your device.
 
 ## Architecture
 

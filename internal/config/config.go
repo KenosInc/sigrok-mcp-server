@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -40,4 +41,18 @@ func Load() Config {
 	}
 
 	return cfg
+}
+
+// FirmwareDirs returns the standard sigrok firmware search directories.
+// These match the paths that libsigrok searches at runtime.
+func FirmwareDirs() []string {
+	dirs := []string{}
+	if home, err := os.UserHomeDir(); err == nil {
+		dirs = append(dirs, filepath.Join(home, ".local", "share", "sigrok-firmware"))
+	}
+	dirs = append(dirs,
+		"/usr/local/share/sigrok-firmware",
+		"/usr/share/sigrok-firmware",
+	)
+	return dirs
 }

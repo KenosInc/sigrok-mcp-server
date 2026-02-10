@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
@@ -27,12 +29,13 @@ type Runner interface {
 
 // Handlers holds MCP tool handler functions.
 type Handlers struct {
-	runner Runner
+	runner       Runner
+	firmwareDirs []string
 }
 
-// NewHandlers creates a new Handlers with the given executor.
-func NewHandlers(runner Runner) *Handlers {
-	return &Handlers{runner: runner}
+// NewHandlers creates a new Handlers with the given executor and firmware directories.
+func NewHandlers(runner Runner, firmwareDirs []string) *Handlers {
+	return &Handlers{runner: runner, firmwareDirs: firmwareDirs}
 }
 
 // HandleListSupportedHardware returns all supported hardware drivers.
@@ -133,11 +136,23 @@ func (h *Handlers) HandleScanDevices(ctx context.Context, _ mcp.CallToolRequest)
 		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
 	if result.ExitCode != 0 {
-		return toolError(result.Stderr), nil
+		msg := nonEmptyError(result)
+		if isFirmwareError(msg) {
+			msg += "\n\nHint: Some devices require firmware files that are not bundled with the server. " +
+				"Use the check_firmware_status tool to diagnose, or mount firmware into the container with: " +
+				"docker run -v /path/to/firmware:/usr/local/share/sigrok-firmware:ro"
+		}
+		return toolError(msg), nil
 	}
 
-	devices := sigrok.ParseScanDevices(result.Stdout)
-	return jsonResult(devices)
+	scanResult := sigrok.ScanResult{
+		Devices: sigrok.ParseScanDevices(result.Stdout),
+	}
+	if warnings := extractFirmwareWarnings(result.Stderr); len(warnings) > 0 {
+		scanResult.Warnings = warnings
+		scanResult.Hint = "Some devices may not have been detected due to missing firmware. Use the check_firmware_status tool to diagnose."
+	}
+	return jsonResult(scanResult)
 }
 
 // HandleCaptureData captures communication data from a device and saves to file.
@@ -301,6 +316,65 @@ func (h *Handlers) HandleDecodeProtocol(ctx context.Context, req mcp.CallToolReq
 		Output: result.Stdout,
 		Format: format,
 	})
+}
+
+// HandleCheckFirmwareStatus checks firmware file availability in standard sigrok directories.
+func (h *Handlers) HandleCheckFirmwareStatus(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	status := sigrok.FirmwareStatus{
+		Directories: make([]sigrok.FirmwareDirectory, 0, len(h.firmwareDirs)),
+	}
+
+	for _, dir := range h.firmwareDirs {
+		fd := sigrok.FirmwareDirectory{Path: dir}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			fd.Exists = false
+			status.Directories = append(status.Directories, fd)
+			continue
+		}
+		fd.Exists = true
+		for _, e := range entries {
+			if !e.IsDir() {
+				fd.Files = append(fd.Files, e.Name())
+			}
+		}
+		status.TotalFiles += len(fd.Files)
+		status.Directories = append(status.Directories, fd)
+	}
+
+	if status.TotalFiles == 0 {
+		status.Hint = "No firmware files found. Some hardware drivers (e.g. kingst-la2016, saleae-logic16) " +
+			"require firmware files that cannot be redistributed. Mount your firmware directory into the container: " +
+			"docker run -v /path/to/firmware:/usr/local/share/sigrok-firmware:ro ..."
+	}
+
+	return jsonResult(status)
+}
+
+// isFirmwareError checks if an error message indicates a firmware-related failure.
+func isFirmwareError(msg string) bool {
+	lower := strings.ToLower(msg)
+	return strings.Contains(lower, "firmware") ||
+		strings.Contains(lower, "failed to open resource") ||
+		strings.Contains(lower, ".fw") ||
+		strings.Contains(lower, ".bitstream")
+}
+
+// extractFirmwareWarnings extracts firmware-related warning lines from stderr.
+func extractFirmwareWarnings(stderr string) []string {
+	if stderr == "" {
+		return nil
+	}
+	var warnings []string
+	for _, line := range strings.Split(stderr, "\n") {
+		if isFirmwareError(line) {
+			trimmed := strings.TrimSpace(line)
+			if trimmed != "" {
+				warnings = append(warnings, trimmed)
+			}
+		}
+	}
+	return warnings
 }
 
 func nonEmptyError(result *sigrok.CommandResult) string {
