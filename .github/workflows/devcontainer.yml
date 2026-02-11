@@ -26,9 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Create Claude config directory
-        run: mkdir -p ~/.claude && touch ~/.claude.json
-
       - name: Create env file from template
         run: cp .devcontainer/.env.example .devcontainer/.env
 
