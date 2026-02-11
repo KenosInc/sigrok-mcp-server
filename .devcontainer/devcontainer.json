@@ -3,6 +3,8 @@
   "build": {
     "dockerfile": "Dockerfile"
   },
+  // --privileged is required for access to USB devices (/dev/bus/usb) and
+  // serial adapters (/dev/ttyUSB*, /dev/ttyACM*) used by SCPI instruments.
   "runArgs": [
     "--name",
     "sigrok-mcp-server",

@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/KenosInc/sigrok-mcp-server/internal/devices"
+	"github.com/KenosInc/sigrok-mcp-server/internal/serial"
 	"github.com/KenosInc/sigrok-mcp-server/internal/sigrok"
 	"github.com/mark3labs/mcp-go/mcp"
 )
@@ -22,6 +24,32 @@ var validOptionRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._:=,/-]*$`)
 // validFilenameRe matches safe filenames (no path separators).
 var validFilenameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
+// validConnRe matches connection strings for sigrok-cli.
+// Supports:
+//   - Serial devices: /dev/ttyUSB0, /dev/ttyACM0, /dev/ttyS0
+//   - Serial with params: /dev/ttyUSB0:serialcomm=115200/8n1
+//   - TCP connections: tcp-raw/192.168.1.100/5555
+//   - VXI connections: vxi/192.168.1.100
+//   - USB TMC: usbtmc/1a86.7523
+//
+// Path traversal (..) and shell metacharacters are rejected.
+var validConnRe = regexp.MustCompile(
+	`^(?:` +
+		`/dev/tty[A-Za-z0-9]+(?::serialcomm=[0-9]+/[0-9][a-zA-Z][0-9])?` +
+		`|` +
+		`(?:tcp-raw|tcp|vxi|usbtmc)/[a-zA-Z0-9._-]+(?:/[a-zA-Z0-9._-]+)*` +
+		`)$`,
+)
+
+// validPortRe matches serial port device paths.
+var validPortRe = regexp.MustCompile(`^/dev/tty[A-Za-z]+[0-9]+$`)
+
+// validCommandRe matches safe serial command strings (SCPI commands, etc.).
+var validCommandRe = regexp.MustCompile(`^[a-zA-Z0-9*:? ,.\-+]+$`)
+
+// validQueryRe matches device profile query strings (device names, models, *IDN? responses).
+var validQueryRe = regexp.MustCompile(`^[a-zA-Z0-9*][a-zA-Z0-9 ._:,/*-]*$`)
+
 // Runner abstracts sigrok-cli command execution for testing.
 type Runner interface {
 	Run(ctx context.Context, args ...string) (*sigrok.CommandResult, error)
@@ -31,11 +59,13 @@ type Runner interface {
 type Handlers struct {
 	runner       Runner
 	firmwareDirs []string
+	serial       serial.Querier
+	devices      *devices.Registry
 }
 
-// NewHandlers creates a new Handlers with the given executor and firmware directories.
-func NewHandlers(runner Runner, firmwareDirs []string) *Handlers {
-	return &Handlers{runner: runner, firmwareDirs: firmwareDirs}
+// NewHandlers creates a new Handlers with the given executor, firmware directories, serial querier, and device registry.
+func NewHandlers(runner Runner, firmwareDirs []string, serialQuerier serial.Querier, deviceRegistry *devices.Registry) *Handlers {
+	return &Handlers{runner: runner, firmwareDirs: firmwareDirs, serial: serialQuerier, devices: deviceRegistry}
 }
 
 // HandleListSupportedHardware returns all supported hardware drivers.
@@ -130,8 +160,32 @@ func (h *Handlers) HandleShowVersion(ctx context.Context, _ mcp.CallToolRequest)
 }
 
 // HandleScanDevices scans for connected hardware devices.
-func (h *Handlers) HandleScanDevices(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-	result, err := h.runner.Run(ctx, "--scan")
+// Optionally accepts driver and conn for targeted serial/network device scanning.
+func (h *Handlers) HandleScanDevices(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	driver := req.GetString("driver", "")
+	conn := req.GetString("conn", "")
+
+	if driver != "" && !validIDRe.MatchString(driver) {
+		return toolError("invalid driver: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
+	if conn != "" && driver == "" {
+		return toolError("'conn' requires 'driver' to be specified"), nil
+	}
+	if conn != "" && !isValidConn(conn) {
+		return toolError("invalid conn: must be a serial device path (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1') or network address (e.g. 'tcp-raw/192.168.1.100/5555')"), nil
+	}
+
+	args := []string{}
+	if driver != "" {
+		driverArg := driver
+		if conn != "" {
+			driverArg = driver + ":conn=" + conn
+		}
+		args = append(args, "-d", driverArg)
+	}
+	args = append(args, "--scan")
+
+	result, err := h.runner.Run(ctx, args...)
 	if err != nil {
 		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
 	}
@@ -163,6 +217,11 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 	}
 	if !validIDRe.MatchString(driver) {
 		return toolError("invalid driver: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
+
+	conn := req.GetString("conn", "")
+	if conn != "" && !isValidConn(conn) {
+		return toolError("invalid conn: must be a serial device path (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1') or network address (e.g. 'tcp-raw/192.168.1.100/5555')"), nil
 	}
 
 	samples := req.GetFloat("samples", 0)
@@ -209,7 +268,11 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 		outputFile = "capture_" + time.Now().UTC().Format("20060102_150405") + ".sr"
 	}
 
-	args := []string{"-d", driver}
+	driverArg := driver
+	if conn != "" {
+		driverArg = driver + ":conn=" + conn
+	}
+	args := []string{"-d", driverArg}
 	if config != "" {
 		args = append(args, "-c", config)
 	}
@@ -349,6 +412,103 @@ func (h *Handlers) HandleCheckFirmwareStatus(_ context.Context, _ mcp.CallToolRe
 	}
 
 	return jsonResult(status)
+}
+
+// HandleSerialQuery sends a command over a serial port and returns the response.
+func (h *Handlers) HandleSerialQuery(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if h.serial == nil {
+		return toolError("serial query is not available (no serial querier configured)"), nil
+	}
+
+	port := req.GetString("port", "")
+	if port == "" {
+		return toolError("missing required parameter: port"), nil
+	}
+	if !validPortRe.MatchString(port) {
+		return toolError("invalid port: must be a serial device path (e.g. '/dev/ttyUSB0')"), nil
+	}
+
+	command := req.GetString("command", "")
+	if command == "" {
+		return toolError("missing required parameter: command"), nil
+	}
+	if !validCommandRe.MatchString(command) {
+		return toolError("invalid command: must contain only alphanumeric characters, *, :, ?, spaces, commas, dots, hyphens, and plus signs"), nil
+	}
+
+	baudrate := int(req.GetFloat("baudrate", 9600))
+	if baudrate <= 0 {
+		return toolError("baudrate must be a positive number"), nil
+	}
+
+	databits := int(req.GetFloat("databits", 8))
+	if databits < 5 || databits > 8 {
+		return toolError("databits must be between 5 and 8"), nil
+	}
+
+	parity := req.GetString("parity", "none")
+	stopbits := req.GetString("stopbits", "1")
+
+	timeoutMs := int(req.GetFloat("timeout_ms", 1000))
+	if timeoutMs <= 0 {
+		return toolError("timeout_ms must be a positive number"), nil
+	}
+	const maxTimeoutMs = 30000
+	if timeoutMs > maxTimeoutMs {
+		return toolError("timeout_ms must not exceed 30000"), nil
+	}
+
+	opts := serial.QueryOptions{
+		Port:      port,
+		Command:   command,
+		BaudRate:  baudrate,
+		DataBits:  databits,
+		Parity:    parity,
+		StopBits:  stopbits,
+		TimeoutMs: timeoutMs,
+	}
+
+	result, err := h.serial.Query(ctx, opts)
+	if err != nil {
+		return toolError(fmt.Sprintf("serial query failed: %v", err)), nil
+	}
+
+	return jsonResult(result)
+}
+
+// HandleGetDeviceProfile looks up a device profile by name, model, manufacturer, or *IDN? response.
+func (h *Handlers) HandleGetDeviceProfile(_ context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if h.devices == nil {
+		return toolError("device profiles are not available (no device registry configured)"), nil
+	}
+
+	query := req.GetString("query", "")
+	if query == "" {
+		return toolError("missing required parameter: query"), nil
+	}
+	if !validQueryRe.MatchString(query) {
+		return toolError("invalid query: must contain only alphanumeric characters, spaces, dots, underscores, colons, commas, slashes, asterisks, and hyphens"), nil
+	}
+
+	matches := h.devices.Lookup(query)
+	return jsonResult(struct {
+		Query   string             `json:"query"`
+		Matches []*devices.Profile `json:"matches"`
+		Count   int                `json:"count"`
+	}{
+		Query:   query,
+		Matches: matches,
+		Count:   len(matches),
+	})
+}
+
+// isValidConn checks whether a connection string is safe and matches expected formats.
+// Combines regex matching with an explicit path traversal check.
+func isValidConn(s string) bool {
+	if strings.Contains(s, "..") {
+		return false
+	}
+	return validConnRe.MatchString(s)
 }
 
 // isFirmwareError checks if an error message indicates a firmware-related failure.
