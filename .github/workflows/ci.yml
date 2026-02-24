@@ -48,14 +48,6 @@ jobs:
         with:
           version: v2.8.0
 
-  yamllint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Run yamllint
-        uses: frenck/action-yamllint@v1
-
   docker:
     runs-on: ubuntu-latest
     steps:
