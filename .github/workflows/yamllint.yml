@@ -1,0 +1,31 @@
+name: YAML Lint
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**.yml"
+      - "**.yaml"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**.yml"
+      - "**.yaml"
+    types:
+      - opened
+      - synchronize
+      - reopened
+
+permissions:
+  contents: read
+
+jobs:
+  yamllint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run yamllint
+        run: yamllint --strict .
