@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kenosinc/sigrok-mcp-server",
+  "title": "sigrok MCP Server",
+  "description": "An MCP server wrapping sigrok-cli for signal analysis — scan logic analyzers, capture data, decode protocols (UART, SPI, I2C, etc.), and query serial instruments via SCPI.",
+  "repository": {
+    "url": "https://github.com/KenosInc/sigrok-mcp-server",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/kenosinc/sigrok-mcp-server:main",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Path to sigrok-cli binary",
+          "isRequired": false,
+          "name": "SIGROK_CLI_PATH"
+        },
+        {
+          "description": "Command execution timeout in seconds",
+          "isRequired": false,
+          "name": "SIGROK_TIMEOUT_SECONDS"
+        },
+        {
+          "description": "Working directory for sigrok-cli execution",
+          "isRequired": false,
+          "name": "SIGROK_WORKING_DIR"
+        }
+      ]
+    }
+  ]
+}

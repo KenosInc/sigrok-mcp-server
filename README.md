@@ -178,3 +178,5 @@ internal/
 ## License
 
 MIT (Kenos, Inc.)
+
+<!-- mcp-name: io.github.kenosinc/sigrok-mcp-server -->
