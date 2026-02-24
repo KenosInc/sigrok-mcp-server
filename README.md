@@ -2,6 +2,8 @@
 
 An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that wraps [sigrok-cli](https://sigrok.org/wiki/Sigrok-cli), exposing sigrok's signal analysis capabilities to LLMs. It translates MCP tool calls into `sigrok-cli` invocations and returns structured JSON results, enabling LLMs to query logic analyzers, decode protocols, and analyze signals.
 
+**[Documentation](https://kenosinc.github.io/sigrok-mcp-server)** | **[Getting Started](https://kenosinc.github.io/sigrok-mcp-server/getting-started/installation/)**
+
 ## Tools
 
 | Tool | Description |
