@@ -68,6 +68,9 @@ RUN ldconfig
 # Copy Go binary from builder
 COPY --from=go-builder /sigrok-mcp-server /usr/local/bin/sigrok-mcp-server
 
+# MCP Registry verification label
+LABEL io.modelcontextprotocol.server.name="io.github.kenosinc/sigrok-mcp-server"
+
 # Smoke-test: verify sigrok-cli works and includes kingst driver
 RUN sigrok-cli --version \
     && sigrok-cli --list-supported | grep -q kingst
