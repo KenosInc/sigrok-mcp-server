@@ -25,8 +25,8 @@ An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that 
 ### Docker
 
 ```bash
-docker build -t sigrok-mcp-server .
-docker run -i sigrok-mcp-server
+docker pull ghcr.io/kenosinc/sigrok-mcp-server
+docker run -i ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
 ### From source
@@ -61,7 +61,7 @@ Add to your `claude_desktop_config.json`:
   "mcpServers": {
     "sigrok": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "sigrok-mcp-server"]
+      "args": ["run", "-i", "--rm", "ghcr.io/kenosinc/sigrok-mcp-server"]
     }
   }
 }
@@ -74,7 +74,7 @@ To access USB devices from the container:
   "mcpServers": {
     "sigrok": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--privileged", "sigrok-mcp-server"]
+      "args": ["run", "-i", "--rm", "--privileged", "ghcr.io/kenosinc/sigrok-mcp-server"]
     }
   }
 }
@@ -90,7 +90,7 @@ To also provide firmware files for devices that require them (e.g. Kingst LA2016
       "args": [
         "run", "-i", "--rm", "--privileged",
         "-v", "/path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro",
-        "sigrok-mcp-server"
+        "ghcr.io/kenosinc/sigrok-mcp-server"
       ]
     }
   }
@@ -100,13 +100,13 @@ To also provide firmware files for devices that require them (e.g. Kingst LA2016
 ### Claude Code
 
 ```bash
-claude mcp add sigrok -- docker run -i --rm sigrok-mcp-server
+claude mcp add sigrok -- docker run -i --rm ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
 With USB access and firmware:
 
 ```bash
-claude mcp add sigrok -- docker run -i --rm --privileged -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro sigrok-mcp-server
+claude mcp add sigrok -- docker run -i --rm --privileged -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
 ## Firmware
