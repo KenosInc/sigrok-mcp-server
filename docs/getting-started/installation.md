@@ -18,6 +18,7 @@ If you prefer to build the image yourself:
 
 ```bash
 docker build -t sigrok-mcp-server .
+docker run -i --rm sigrok-mcp-server
 ```
 
 ## From source
