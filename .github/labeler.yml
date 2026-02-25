@@ -1,0 +1,40 @@
+# Scope labels (by changed files)
+'go':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.go'
+          - 'go.mod'
+          - 'go.sum'
+
+'docker':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'Dockerfile'
+          - '.devcontainer/**'
+
+'github_actions':
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+
+'dependencies':
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'go.mod'
+          - 'go.sum'
+
+# Type labels (by branch name)
+'Type: Feature':
+  - head-branch: ['^feat/']
+
+'Type: Bug':
+  - head-branch: ['^fix/']
+
+'Type: Enhancement':
+  - head-branch: ['^perf/']
+
+'Type: House Keeping':
+  - head-branch: ['^chore/', '^ci/', '^refactor/']
+
+'Type: Documentation':
+  - head-branch: ['^docs/']
