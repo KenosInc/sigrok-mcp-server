@@ -1,0 +1,25 @@
+changelog:
+  categories:
+    - title: "🚀 New Features"
+      labels:
+        - "Type: Feature"
+    - title: "⚡ Enhancements"
+      labels:
+        - "Type: Enhancement"
+    - title: "🐛 Bug Fixes"
+      labels:
+        - "Type: Bug"
+    - title: "📝 Documentation"
+      labels:
+        - "Type: Documentation"
+    - title: "🏗️ Infrastructure"
+      labels:
+        - "Type: House Keeping"
+        - github_actions
+        - docker
+    - title: "📦 Dependencies"
+      labels:
+        - dependencies
+    - title: "📋 Other Changes"
+      labels:
+        - "*"
