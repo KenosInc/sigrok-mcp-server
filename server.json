@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.kenosinc/sigrok-mcp-server",
+  "name": "io.github.KenosInc/sigrok-mcp-server",
   "title": "sigrok MCP Server",
   "description": "Wraps sigrok-cli for signal analysis: capture data, decode protocols, and query instruments.",
   "repository": {
