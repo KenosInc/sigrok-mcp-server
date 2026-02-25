@@ -179,4 +179,4 @@ internal/
 
 MIT (Kenos, Inc.)
 
-<!-- mcp-name: io.github.kenosinc/sigrok-mcp-server -->
+<!-- mcp-name: io.github.KenosInc/sigrok-mcp-server -->
