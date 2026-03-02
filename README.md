@@ -1,6 +1,6 @@
 # sigrok-mcp-server
 
-An [MCP (Model Context Protocol)](https://modelcontextprotocol.io/) server that wraps [sigrok-cli](https://sigrok.org/wiki/Sigrok-cli), exposing sigrok's signal analysis capabilities to LLMs. It translates MCP tool calls into `sigrok-cli` invocations and returns structured JSON results, enabling LLMs to query logic analyzers, decode protocols, and analyze signals.
+A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for [sigrok](https://sigrok.org/) — enables AI agents like [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://openai.com/index/introducing-codex/), and [Cursor](https://www.cursor.com/) to capture, decode, and analyze signals from logic analyzers and measurement devices. Supports I2C, SPI, UART, CAN, and 100+ protocols via sigrok-cli.
 
 **[Documentation](https://kenosinc.github.io/sigrok-mcp-server)** | **[Getting Started](https://kenosinc.github.io/sigrok-mcp-server/getting-started/installation/)**
 
