@@ -1,5 +1,10 @@
 # sigrok-mcp-server
 
+[![CI](https://github.com/KenosInc/sigrok-mcp-server/actions/workflows/ci.yml/badge.svg)](https://github.com/KenosInc/sigrok-mcp-server/actions/workflows/ci.yml)
+[![Go Version](https://img.shields.io/github/go-mod/go-version/KenosInc/sigrok-mcp-server)](https://github.com/KenosInc/sigrok-mcp-server)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub Release](https://img.shields.io/github/v/release/KenosInc/sigrok-mcp-server)](https://github.com/KenosInc/sigrok-mcp-server/releases)
+
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for [sigrok](https://sigrok.org/) — enables AI agents like [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Codex](https://developers.openai.com/codex), and [Cursor](https://www.cursor.com/) to capture, decode, and analyze signals from logic analyzers and measurement devices. Supports I2C, SPI, UART, CAN, and 100+ protocols via sigrok-cli.
 
 **[Documentation](https://kenosinc.github.io/sigrok-mcp-server)** | **[Getting Started](https://kenosinc.github.io/sigrok-mcp-server/getting-started/installation/)**
