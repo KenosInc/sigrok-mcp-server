@@ -71,13 +71,14 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 	), h.HandleCheckFirmwareStatus)
 
 	srv.AddTool(mcp.NewTool("capture_data",
-		mcp.WithDescription("Capture communication data from a connected device and save to file. Either 'samples' or 'time' must be specified."),
+		mcp.WithDescription("Capture communication data from a connected device and save to file. At least one of 'samples', 'time', or 'frames' must be specified."),
 		mcp.WithString("driver", mcp.Description("Hardware driver ID (e.g. 'fx2lafw', 'demo')"), mcp.Required()),
 		mcp.WithString("conn", mcp.Description("Connection string for serial/network devices (e.g. '/dev/ttyUSB0:serialcomm=115200/8n1')")),
 		mcp.WithString("config", mcp.Description("Device configuration (e.g. 'samplerate=1M')")),
 		mcp.WithString("channels", mcp.Description("Channels to use (e.g. 'D0,D1,D2')")),
 		mcp.WithNumber("samples", mcp.Description("Number of samples to acquire")),
 		mcp.WithNumber("time", mcp.Description("How long to sample in milliseconds")),
+		mcp.WithNumber("frames", mcp.Description("Number of frames to acquire")),
 		mcp.WithString("triggers", mcp.Description("Trigger configuration (e.g. 'D0=r')")),
 		mcp.WithBoolean("wait_trigger", mcp.Description("Wait for trigger before capturing")),
 		mcp.WithString("output_file", mcp.Description("Output filename (auto-generated if omitted)")),
