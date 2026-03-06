@@ -57,6 +57,12 @@ type DecodeResult struct {
 	Format string `json:"format"`
 }
 
+// RenderResult holds the result of a render_waveform operation.
+type RenderResult struct {
+	Output string `json:"output"`
+	Format string `json:"format"` // "ascii" or "wavedrom"
+}
+
 // ScanResult holds the result of a scan_devices operation.
 type ScanResult struct {
 	Devices  []ScannedDevice `json:"devices"`

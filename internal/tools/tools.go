@@ -94,6 +94,22 @@ func RegisterAll(srv *server.MCPServer, h *Handlers) {
 		mcp.WithBoolean("json_trace", mcp.Description("Output in Google Trace Event JSON format")),
 	), h.HandleDecodeProtocol)
 
+	srv.AddTool(mcp.NewTool("render_waveform",
+		mcp.WithDescription("Render captured signal data as ASCII art waveform or WaveDrom JSON. Use this to visually inspect captured data before or after protocol decoding."),
+		mcp.WithString("input_file",
+			mcp.Description("Captured data file to render (e.g. capture_20240101_120000.sr)"),
+			mcp.Required()),
+		mcp.WithString("output_format",
+			mcp.Description("Rendering format: 'ascii' for text waveform art, 'wavedrom' for WaveDrom JSON. Defaults to 'ascii'."),
+		),
+		mcp.WithString("input_format",
+			mcp.Description("Input file format (e.g. 'vcd', 'csv', 'binary'). Auto-detected if omitted."),
+		),
+		mcp.WithString("channels",
+			mcp.Description("Channels to render (e.g. 'D0,D1,D2'). All channels if omitted."),
+		),
+	), h.HandleRenderWaveform)
+
 	srv.AddTool(mcp.NewTool("serial_query",
 		mcp.WithDescription(
 			"Send a command string over a serial port and return the device response. "+

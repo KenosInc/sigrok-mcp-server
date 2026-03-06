@@ -110,6 +110,7 @@ func TestRegisterAll(t *testing.T) {
 		"check_firmware_status":   true,
 		"serial_query":            true,
 		"get_device_profile":      true,
+		"render_waveform":         true,
 	}
 
 	if len(parsed.Result.Tools) != len(wantTools) {
@@ -151,6 +152,10 @@ func TestRegisterAll(t *testing.T) {
 		case "get_device_profile":
 			if !contains(tool.InputSchema.Required, "query") {
 				t.Errorf("get_device_profile missing required param 'query'")
+			}
+		case "render_waveform":
+			if !contains(tool.InputSchema.Required, "input_file") {
+				t.Errorf("render_waveform missing required param 'input_file'")
 			}
 		}
 	}
@@ -1688,5 +1693,302 @@ func TestHandleGetDeviceProfileNilRegistry(t *testing.T) {
 	text := assertTextResult(t, result, true)
 	if !strings.Contains(text, "not available") {
 		t.Errorf("expected 'not available' error, got %q", text)
+	}
+}
+
+// --- render_waveform tests ---
+
+func TestHandleRenderWaveformASCIIDefault(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "D0:11110000\nD1:00001111\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "capture.sr",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "capture.sr", "-O", "ascii"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed sigrok.RenderResult
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Output == "" {
+		t.Error("expected non-empty output")
+	}
+	if parsed.Format != "ascii" {
+		t.Errorf("format = %q, want %q", parsed.Format, "ascii")
+	}
+}
+
+func TestHandleRenderWaveformASCIIExplicit(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "D0:11110000\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file":    "capture.sr",
+		"output_format": "ascii",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "capture.sr", "-O", "ascii"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleRenderWaveformWaveDrom(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   `{"signal":[{"name":"D0","wave":"10101"}]}`,
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file":    "capture.sr",
+		"output_format": "wavedrom",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "capture.sr", "-O", "wavedrom"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed sigrok.RenderResult
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Format != "wavedrom" {
+		t.Errorf("format = %q, want %q", parsed.Format, "wavedrom")
+	}
+}
+
+func TestHandleRenderWaveformWithInputFormat(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "waveform output",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file":   "data.csv",
+		"input_format": "csv",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "data.csv", "-I", "csv", "-O", "ascii"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleRenderWaveformWithChannels(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "D0:11110000\nD1:00001111\n",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "capture.sr",
+		"channels":   "D0,D1",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "capture.sr", "-O", "ascii", "-C", "D0,D1"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleRenderWaveformAllParams(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   `{"signal":[]}`,
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file":    "data.csv",
+		"output_format": "wavedrom",
+		"input_format":  "csv",
+		"channels":      "D0,D1,D2",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{"-i", "data.csv", "-I", "csv", "-O", "wavedrom", "-C", "D0,D1,D2"}
+	if !reflect.DeepEqual(mock.gotArgs, wantArgs) {
+		t.Errorf("args = %v, want %v", mock.gotArgs, wantArgs)
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleRenderWaveformMissingInputFile(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "missing required parameter: input_file") {
+		t.Errorf("expected missing param error, got %q", text)
+	}
+}
+
+func TestHandleRenderWaveformInvalidParams(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	tests := []struct {
+		name string
+		args map[string]any
+	}{
+		{"path traversal input_file", map[string]any{"input_file": "../etc/passwd"}},
+		{"input_file with slash", map[string]any{"input_file": "dir/file.sr"}},
+		{"invalid output_format", map[string]any{"input_file": "capture.sr", "output_format": "binary"}},
+		{"unsupported output_format csv", map[string]any{"input_file": "capture.sr", "output_format": "csv"}},
+		{"unsupported output_format hex", map[string]any{"input_file": "capture.sr", "output_format": "hex"}},
+		{"invalid input_format", map[string]any{"input_file": "capture.sr", "input_format": "--evil"}},
+		{"invalid channels", map[string]any{"input_file": "capture.sr", "channels": "$(cmd)"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", tt.args))
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			assertTextResult(t, result, true)
+		})
+	}
+}
+
+func TestHandleRenderWaveformExecutionError(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		err: errors.New("binary not found"),
+	}, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "capture.sr",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "sigrok-cli execution failed") {
+		t.Errorf("expected execution error, got %q", text)
+	}
+}
+
+func TestHandleRenderWaveformNonZeroExit(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stderr:   "Error: input file not found",
+			ExitCode: 1,
+		},
+	}, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "missing.sr",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if text != "Error: input file not found" {
+		t.Errorf("error text = %q, want %q", text, "Error: input file not found")
+	}
+}
+
+func TestHandleRenderWaveformNonZeroExitEmptyStderr(t *testing.T) {
+	h := NewHandlers(&mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			Stderr:   "",
+			ExitCode: 1,
+		},
+	}, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "capture.sr",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected Go error: %v", err)
+	}
+
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "exited with code 1") {
+		t.Errorf("expected exit code in error, got %q", text)
+	}
+}
+
+func TestHandleRenderWaveformEmptyStdout(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleRenderWaveform(context.Background(), makeRequest("render_waveform", map[string]any{
+		"input_file": "empty.sr",
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	text := assertTextResult(t, result, false)
+	var parsed sigrok.RenderResult
+	if err := json.Unmarshal([]byte(text), &parsed); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if parsed.Output != "" {
+		t.Errorf("expected empty output, got %q", parsed.Output)
 	}
 }
