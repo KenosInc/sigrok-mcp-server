@@ -26,6 +26,7 @@ func main() {
 
 	srv := server.NewMCPServer("sigrok-mcp-server", "0.1.0",
 		server.WithResourceCapabilities(false, false),
+		server.WithInstructions(tools.Instructions),
 	)
 	tools.RegisterAll(srv, handlers)
 	tools.RegisterResources(srv, deviceRegistry)
