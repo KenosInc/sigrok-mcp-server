@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"os"
 	"reflect"
 	"strings"
@@ -687,7 +688,7 @@ func TestHandleCaptureDataMissingDriver(t *testing.T) {
 	assertTextResult(t, result, true)
 }
 
-func TestHandleCaptureDataMissingSamplesAndTime(t *testing.T) {
+func TestHandleCaptureDataMissingAcquisitionLimit(t *testing.T) {
 	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
 
 	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
@@ -696,7 +697,10 @@ func TestHandleCaptureDataMissingSamplesAndTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertTextResult(t, result, true)
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "at least one of 'samples', 'time', or 'frames' must be specified") {
+		t.Errorf("expected acquisition limit error, got %q", text)
+	}
 }
 
 func TestHandleCaptureDataInvalidParam(t *testing.T) {
@@ -1139,7 +1143,42 @@ func TestHandleCaptureDataOverflowFrames(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertTextResult(t, result, true)
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "frames value is too large") {
+		t.Errorf("expected 'frames value is too large' error, got %q", text)
+	}
+}
+
+func TestHandleCaptureDataNaNFrames(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"frames": math.NaN(),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "frames must be a finite number") {
+		t.Errorf("expected 'frames must be a finite number' error, got %q", text)
+	}
+}
+
+func TestHandleCaptureDataInfSamples(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "demo",
+		"samples": math.Inf(1),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "samples must be a finite number") {
+		t.Errorf("expected 'samples must be a finite number' error, got %q", text)
+	}
 }
 
 func TestHandleDecodeProtocolExecutionError(t *testing.T) {
