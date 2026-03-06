@@ -641,6 +641,7 @@ func TestHandleCaptureDataWithAllOptions(t *testing.T) {
 		"channels":     "D0,D1,D2",
 		"samples":      float64(5000),
 		"time":         float64(1000),
+		"frames":       float64(10),
 		"triggers":     "D0=r",
 		"wait_trigger": true,
 		"output_file":  "test_capture.sr",
@@ -655,6 +656,7 @@ func TestHandleCaptureDataWithAllOptions(t *testing.T) {
 		"-C", "D0,D1,D2",
 		"--samples", "5000",
 		"--time", "1000",
+		"--frames", "10",
 		"-t", "D0=r",
 		"-w",
 		"-o", "test_capture.sr",
@@ -996,6 +998,148 @@ func TestHandleCaptureDataNonZeroExitEmptyStderr(t *testing.T) {
 	if !strings.Contains(text, "exited with code 1") {
 		t.Errorf("expected exit code in error, got %q", text)
 	}
+}
+
+func TestHandleCaptureDataFramesOnly(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"frames": float64(10),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify --frames is present and --samples/--time are not
+	wantArgs := []string{
+		"-d", "demo",
+		"--frames", "10",
+	}
+	for i, want := range wantArgs {
+		if i >= len(mock.gotArgs) {
+			t.Fatalf("expected at least %d args, got %v", len(wantArgs), mock.gotArgs)
+		}
+		if mock.gotArgs[i] != want {
+			t.Errorf("arg[%d] = %q, want %q", i, mock.gotArgs[i], want)
+		}
+	}
+	for i, arg := range mock.gotArgs {
+		if arg == "--samples" {
+			t.Errorf("unexpected --samples at position %d", i)
+		}
+		if arg == "--time" {
+			t.Errorf("unexpected --time at position %d", i)
+		}
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleCaptureDataFramesAndSamples(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver":  "fx2lafw",
+		"frames":  float64(5),
+		"samples": float64(1000),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{
+		"-d", "fx2lafw",
+		"--samples", "1000",
+		"--frames", "5",
+	}
+	// Check that the expected args are a prefix (before -o)
+	for i, want := range wantArgs {
+		if i >= len(mock.gotArgs) {
+			t.Fatalf("expected at least %d args, got %v", len(wantArgs), mock.gotArgs)
+		}
+		if mock.gotArgs[i] != want {
+			t.Errorf("arg[%d] = %q, want %q", i, mock.gotArgs[i], want)
+		}
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleCaptureDataFramesAndTime(t *testing.T) {
+	mock := &mockExecutor{
+		result: &sigrok.CommandResult{
+			Stdout:   "",
+			ExitCode: 0,
+		},
+	}
+	h := NewHandlers(mock, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"frames": float64(3),
+		"time":   float64(500),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	wantArgs := []string{
+		"-d", "demo",
+		"--time", "500",
+		"--frames", "3",
+	}
+	for i, want := range wantArgs {
+		if i >= len(mock.gotArgs) {
+			t.Fatalf("expected at least %d args, got %v", len(wantArgs), mock.gotArgs)
+		}
+		if mock.gotArgs[i] != want {
+			t.Errorf("arg[%d] = %q, want %q", i, mock.gotArgs[i], want)
+		}
+	}
+
+	assertTextResult(t, result, false)
+}
+
+func TestHandleCaptureDataNegativeFrames(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"frames": float64(-1),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	text := assertTextResult(t, result, true)
+	if !strings.Contains(text, "frames must be a positive number") {
+		t.Errorf("expected 'frames must be a positive number' error, got %q", text)
+	}
+}
+
+func TestHandleCaptureDataOverflowFrames(t *testing.T) {
+	h := NewHandlers(&mockExecutor{}, nil, nil, nil)
+
+	result, err := h.HandleCaptureData(context.Background(), makeRequest("capture_data", map[string]any{
+		"driver": "demo",
+		"frames": float64(1e16),
+	}))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertTextResult(t, result, true)
 }
 
 func TestHandleDecodeProtocolExecutionError(t *testing.T) {

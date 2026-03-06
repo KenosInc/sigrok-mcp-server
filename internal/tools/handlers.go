@@ -226,14 +226,18 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 
 	samples := req.GetFloat("samples", 0)
 	timeMs := req.GetFloat("time", 0)
+	frames := req.GetFloat("frames", 0)
 	if samples < 0 {
 		return toolError("samples must be a positive number"), nil
 	}
 	if timeMs < 0 {
 		return toolError("time must be a positive number"), nil
 	}
-	if samples <= 0 && timeMs <= 0 {
-		return toolError("either 'samples' or 'time' must be specified"), nil
+	if frames < 0 {
+		return toolError("frames must be a positive number"), nil
+	}
+	if samples <= 0 && timeMs <= 0 && frames <= 0 {
+		return toolError("at least one of 'samples', 'time', or 'frames' must be specified"), nil
 	}
 	const maxNumericValue = 1e15
 	if samples > maxNumericValue {
@@ -241,6 +245,9 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 	}
 	if timeMs > maxNumericValue {
 		return toolError("time value is too large"), nil
+	}
+	if frames > maxNumericValue {
+		return toolError("frames value is too large"), nil
 	}
 
 	config := req.GetString("config", "")
@@ -284,6 +291,9 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 	}
 	if timeMs > 0 {
 		args = append(args, "--time", fmt.Sprintf("%d", int64(timeMs)))
+	}
+	if frames > 0 {
+		args = append(args, "--frames", fmt.Sprintf("%d", int64(frames)))
 	}
 	if triggers != "" {
 		args = append(args, "-t", triggers)
