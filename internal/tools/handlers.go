@@ -381,6 +381,56 @@ func (h *Handlers) HandleDecodeProtocol(ctx context.Context, req mcp.CallToolReq
 	})
 }
 
+// HandleRenderWaveform renders captured signal data as ASCII art or WaveDrom JSON.
+func (h *Handlers) HandleRenderWaveform(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	inputFile := req.GetString("input_file", "")
+	if inputFile == "" {
+		return toolError("missing required parameter: input_file"), nil
+	}
+	if !validFilenameRe.MatchString(inputFile) {
+		return toolError("invalid input_file: must contain only alphanumeric characters, dots, underscores, and hyphens (no path separators)"), nil
+	}
+
+	outputFormat := req.GetString("output_format", "")
+	if outputFormat == "" {
+		outputFormat = "ascii"
+	} else if outputFormat != "ascii" && outputFormat != "wavedrom" {
+		return toolError("invalid output_format: must be 'ascii' or 'wavedrom'"), nil
+	}
+
+	inputFormat := req.GetString("input_format", "")
+	if inputFormat != "" && !validIDRe.MatchString(inputFormat) {
+		return toolError("invalid input_format: must contain only alphanumeric characters, hyphens, and underscores"), nil
+	}
+
+	channels := req.GetString("channels", "")
+	if channels != "" && !validOptionRe.MatchString(channels) {
+		return toolError("invalid channels: must contain only alphanumeric characters, dots, underscores, colons, equals, commas, slashes, and hyphens"), nil
+	}
+
+	args := []string{"-i", inputFile}
+	if inputFormat != "" {
+		args = append(args, "-I", inputFormat)
+	}
+	args = append(args, "-O", outputFormat)
+	if channels != "" {
+		args = append(args, "-C", channels)
+	}
+
+	result, err := h.runner.Run(ctx, args...)
+	if err != nil {
+		return toolError(fmt.Sprintf("sigrok-cli execution failed: %v", err)), nil
+	}
+	if result.ExitCode != 0 {
+		return toolError(nonEmptyError(result)), nil
+	}
+
+	return jsonResult(sigrok.RenderResult{
+		Output: result.Stdout,
+		Format: outputFormat,
+	})
+}
+
 // HandleCheckFirmwareStatus checks firmware file availability in standard sigrok directories.
 func (h *Handlers) HandleCheckFirmwareStatus(_ context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	status := sigrok.FirmwareStatus{
