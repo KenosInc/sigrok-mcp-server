@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"regexp"
 	"strings"
@@ -227,6 +228,15 @@ func (h *Handlers) HandleCaptureData(ctx context.Context, req mcp.CallToolReques
 	samples := req.GetFloat("samples", 0)
 	timeMs := req.GetFloat("time", 0)
 	frames := req.GetFloat("frames", 0)
+	if math.IsNaN(samples) || math.IsInf(samples, 0) {
+		return toolError("samples must be a finite number"), nil
+	}
+	if math.IsNaN(timeMs) || math.IsInf(timeMs, 0) {
+		return toolError("time must be a finite number"), nil
+	}
+	if math.IsNaN(frames) || math.IsInf(frames, 0) {
+		return toolError("frames must be a finite number"), nil
+	}
 	if samples < 0 {
 		return toolError("samples must be a positive number"), nil
 	}
