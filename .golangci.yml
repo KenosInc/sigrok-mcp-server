@@ -21,3 +21,10 @@ linters:
         linters:
           - gosec
         text: G304
+      # The standard Go "helper process" pattern re-executes the test binary
+      # (os.Args[0]) to fake sigrok-cli; gosec's taint analysis reads that as
+      # command injection. Test-only.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G702
