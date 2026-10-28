@@ -36,7 +36,7 @@ docker run -i ghcr.io/kenosinc/sigrok-mcp-server
 
 ### From source
 
-Requires Go 1.25+ and `sigrok-cli` installed on your system.
+Requires Go 1.26+ and `sigrok-cli` installed on your system.
 
 ```bash
 go build -o sigrok-mcp-server ./cmd/sigrok-mcp-server
@@ -53,7 +53,7 @@ Configuration is via environment variables:
 |---|---|---|
 | `SIGROK_CLI_PATH` | `sigrok-cli` | Path to the sigrok-cli binary |
 | `SIGROK_TIMEOUT_SECONDS` | `30` | Command execution timeout in seconds |
-| `SIGROK_WORKING_DIR` | (empty) | Working directory for sigrok-cli execution |
+| `SIGROK_WORKING_DIR` | (empty = current directory; the Docker image sets `WORKDIR /data`) | Working directory for sigrok-cli execution. Captures are written here — in Docker, mount a volume at `/data` to keep them |
 
 ## MCP Client Configuration
 
@@ -72,20 +72,9 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-To access USB devices from the container:
-
-```json
-{
-  "mcpServers": {
-    "sigrok": {
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "--privileged", "ghcr.io/kenosinc/sigrok-mcp-server"]
-    }
-  }
-}
-```
-
-To also provide firmware files for devices that require them (e.g. Kingst LA2016):
+To access USB devices from the container (Linux hosts only — Docker Desktop
+on macOS/Windows cannot pass USB through; use USB/IP or a Linux Docker Engine)
+and keep captures across container restarts:
 
 ```json
 {
@@ -93,8 +82,32 @@ To also provide firmware files for devices that require them (e.g. Kingst LA2016
     "sigrok": {
       "command": "docker",
       "args": [
-        "run", "-i", "--rm", "--privileged",
+        "run", "-i", "--rm", "--device=/dev/bus/usb",
+        "-v", "sigrok-data:/data",
+        "ghcr.io/kenosinc/sigrok-mcp-server"
+      ]
+    }
+  }
+}
+```
+
+Serial instruments (`serial_query`, `scpi-*` drivers) need their tty node as
+well, e.g. add `"--device=/dev/ttyUSB0"`.
+
+Devices that load firmware on first use (e.g. Kingst LA2016) re-enumerate with
+a new USB device node after the upload, which `--device` cannot follow. For
+those, bind-mount the USB bus and allow the USB character-device major instead:
+
+```json
+{
+  "mcpServers": {
+    "sigrok": {
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-v", "/dev/bus/usb:/dev/bus/usb", "--device-cgroup-rule=c 189:* rmw",
         "-v", "/path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro",
+        "-v", "sigrok-data:/data",
         "ghcr.io/kenosinc/sigrok-mcp-server"
       ]
     }
@@ -108,10 +121,10 @@ To also provide firmware files for devices that require them (e.g. Kingst LA2016
 claude mcp add sigrok -- docker run -i --rm ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
-With USB access and firmware:
+With USB access, firmware (re-enumerating device) and persistent captures:
 
 ```bash
-claude mcp add sigrok -- docker run -i --rm --privileged -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro ghcr.io/kenosinc/sigrok-mcp-server
+claude mcp add sigrok -- docker run -i --rm -v /dev/bus/usb:/dev/bus/usb --device-cgroup-rule='c 189:* rmw' -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro -v sigrok-data:/data ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
 ## Firmware

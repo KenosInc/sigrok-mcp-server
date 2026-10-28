@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -513,7 +514,7 @@ func TestHandleScanDevicesFirmwareError(t *testing.T) {
 func TestHandleCheckFirmwareStatusWithFiles(t *testing.T) {
 	tmpDir := t.TempDir()
 	for _, name := range []string{"kingst-la-01a2.fw", "kingst-la2016-fpga.bitstream"} {
-		if err := os.WriteFile(tmpDir+"/"+name, []byte("test"), 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(tmpDir, name), []byte("test"), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}

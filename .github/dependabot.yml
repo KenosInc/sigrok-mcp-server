@@ -20,3 +20,10 @@ updates:
       interval: weekly
     commit-message:
       prefix: "docker"
+
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "docs"

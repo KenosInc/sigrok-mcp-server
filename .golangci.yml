@@ -1,0 +1,30 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    # Security-oriented static analysis (command execution, file perms,
+    # integer overflow, unchecked errors on Close, etc.).
+    - gosec
+    - errorlint
+    - bodyclose
+  settings:
+    gosec:
+      excludes:
+        # G204: sigrok-cli is launched with argv (no shell) and every
+        # argument is validated by regex in internal/tools before use.
+        - G204
+  exclusions:
+    rules:
+      # Test fixtures are read from fixed paths under testdata/.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G304
+      # The standard Go "helper process" pattern re-executes the test binary
+      # (os.Args[0]) to fake sigrok-cli; gosec's taint analysis reads that as
+      # command injection. Test-only.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G702
