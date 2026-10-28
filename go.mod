@@ -1,6 +1,6 @@
 module github.com/KenosInc/sigrok-mcp-server
 
-go 1.25.5
+go 1.26.10
 
 require (
 	github.com/mark3labs/mcp-go v0.54.0

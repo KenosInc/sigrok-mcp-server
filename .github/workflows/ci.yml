@@ -59,10 +59,10 @@ jobs:
 
       # Run govulncheck directly (not via golang/govulncheck-action) so both
       # the Go toolchain (from go.mod, same as the build) and the scanner
-      # version are pinned. x/vuln v1.8+ requires Go 1.26; bump this pin
-      # together with the `go` directive in go.mod.
+      # version are pinned. Bump this pin together with the `go` directive
+      # in go.mod (x/vuln tracks the current Go release).
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.7.0
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
       # Fails on known vulnerabilities in dependencies that are actually
       # reachable from this module's code (not just present in go.sum).

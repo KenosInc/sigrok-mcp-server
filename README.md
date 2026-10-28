@@ -36,7 +36,7 @@ docker run -i ghcr.io/kenosinc/sigrok-mcp-server
 
 ### From source
 
-Requires Go 1.25+ and `sigrok-cli` installed on your system.
+Requires Go 1.26+ and `sigrok-cli` installed on your system.
 
 ```bash
 go build -o sigrok-mcp-server ./cmd/sigrok-mcp-server
