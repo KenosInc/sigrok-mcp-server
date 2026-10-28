@@ -53,7 +53,7 @@ Configuration is via environment variables:
 |---|---|---|
 | `SIGROK_CLI_PATH` | `sigrok-cli` | Path to the sigrok-cli binary |
 | `SIGROK_TIMEOUT_SECONDS` | `30` | Command execution timeout in seconds |
-| `SIGROK_WORKING_DIR` | (empty) | Working directory for sigrok-cli execution |
+| `SIGROK_WORKING_DIR` | (empty; `/data` in the Docker image) | Working directory for sigrok-cli execution — captures are written here, mount it with `-v` to keep them |
 
 ## MCP Client Configuration
 
@@ -79,7 +79,7 @@ To access USB devices from the container:
   "mcpServers": {
     "sigrok": {
       "command": "docker",
-      "args": ["run", "-i", "--rm", "--privileged", "ghcr.io/kenosinc/sigrok-mcp-server"]
+      "args": ["run", "-i", "--rm", "--device=/dev/bus/usb", "ghcr.io/kenosinc/sigrok-mcp-server"]
     }
   }
 }
@@ -93,7 +93,7 @@ To also provide firmware files for devices that require them (e.g. Kingst LA2016
     "sigrok": {
       "command": "docker",
       "args": [
-        "run", "-i", "--rm", "--privileged",
+        "run", "-i", "--rm", "--device=/dev/bus/usb",
         "-v", "/path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro",
         "ghcr.io/kenosinc/sigrok-mcp-server"
       ]
@@ -111,7 +111,7 @@ claude mcp add sigrok -- docker run -i --rm ghcr.io/kenosinc/sigrok-mcp-server
 With USB access and firmware:
 
 ```bash
-claude mcp add sigrok -- docker run -i --rm --privileged -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro ghcr.io/kenosinc/sigrok-mcp-server
+claude mcp add sigrok -- docker run -i --rm --device=/dev/bus/usb -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
 ## Firmware

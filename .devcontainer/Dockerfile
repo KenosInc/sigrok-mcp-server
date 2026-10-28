@@ -1,5 +1,12 @@
 FROM mcr.microsoft.com/devcontainers/go:1-bookworm
 
+# sigrok has no release containing the kingst-la2016 driver, so it is
+# built from source. Clone over HTTPS (git:// is unauthenticated and
+# unencrypted) and pin each repository to a commit so the build is
+# reproducible and cannot pick up an unreviewed upstream change.
+ARG LIBSIGROK_REF=0bc2487778e660f4d3116729b6f4aee2b1996bb0
+ARG LIBSIGROKDECODE_REF=71f451443029322d57376214c330b518efd84f88
+ARG SIGROK_CLI_REF=f44dd91347e7ac797cefc23162b9fcf0b7329f1f
 # Build dependencies for sigrok (libsigrok, libsigrokdecode, sigrok-cli).
 # The Debian bookworm package ships libsigrok 0.5.2, which lacks the
 # kingst-la2016 driver (added March 2020, unreleased). We build from git master.
@@ -15,8 +22,10 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && rm -rf /var/lib/apt/lists/*
 
 # Build libsigrok from git (includes kingst-la2016 driver)
-RUN git clone --depth 1 git://sigrok.org/libsigrok /tmp/libsigrok \
+RUN git init -q /tmp/libsigrok \
     && cd /tmp/libsigrok \
+    && git fetch -q --depth 1 https://github.com/sigrokproject/libsigrok.git "${LIBSIGROK_REF}" \
+    && git checkout -q FETCH_HEAD \
     && ./autogen.sh \
     && ./configure \
     && make -j"$(nproc)" \
@@ -25,8 +34,10 @@ RUN git clone --depth 1 git://sigrok.org/libsigrok /tmp/libsigrok \
     && rm -rf /tmp/libsigrok
 
 # Build libsigrokdecode from git
-RUN git clone --depth 1 git://sigrok.org/libsigrokdecode /tmp/libsigrokdecode \
+RUN git init -q /tmp/libsigrokdecode \
     && cd /tmp/libsigrokdecode \
+    && git fetch -q --depth 1 https://github.com/sigrokproject/libsigrokdecode.git "${LIBSIGROKDECODE_REF}" \
+    && git checkout -q FETCH_HEAD \
     && ./autogen.sh \
     && ./configure \
     && make -j"$(nproc)" \
@@ -35,8 +46,10 @@ RUN git clone --depth 1 git://sigrok.org/libsigrokdecode /tmp/libsigrokdecode \
     && rm -rf /tmp/libsigrokdecode
 
 # Build sigrok-cli from git
-RUN git clone --depth 1 git://sigrok.org/sigrok-cli /tmp/sigrok-cli \
+RUN git init -q /tmp/sigrok-cli \
     && cd /tmp/sigrok-cli \
+    && git fetch -q --depth 1 https://github.com/sigrokproject/sigrok-cli.git "${SIGROK_CLI_REF}" \
+    && git checkout -q FETCH_HEAD \
     && ./autogen.sh \
     && ./configure \
     && make -j"$(nproc)" \

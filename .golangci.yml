@@ -1,0 +1,16 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    # Security-oriented static analysis (command execution, file perms,
+    # integer overflow, unchecked errors on Close, etc.).
+    - gosec
+    - errorlint
+    - bodyclose
+  settings:
+    gosec:
+      excludes:
+        # G204: sigrok-cli is launched with argv (no shell) and every
+        # argument is validated by regex in internal/tools before use.
+        - G204

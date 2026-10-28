@@ -6,10 +6,10 @@
 
 **Possible causes:**
 
-1. **USB not passed through (Docker):** Use `--privileged` or `--device` flag.
+1. **USB not passed through (Docker):** Pass the USB bus with `--device=/dev/bus/usb` (prefer this over `--privileged`).
 
     ```bash
-    docker run -i --rm --privileged sigrok-mcp-server
+    docker run -i --rm --device=/dev/bus/usb sigrok-mcp-server
     ```
 
 2. **Missing firmware:** Run `check_firmware_status` to verify. See the [firmware guide](../getting-started/firmware.md).

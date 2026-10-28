@@ -26,7 +26,7 @@ Add to your `claude_desktop_config.json`:
       "mcpServers": {
         "sigrok": {
           "command": "docker",
-          "args": ["run", "-i", "--rm", "--privileged", "ghcr.io/kenosinc/sigrok-mcp-server"]
+          "args": ["run", "-i", "--rm", "--device=/dev/bus/usb", "ghcr.io/kenosinc/sigrok-mcp-server"]
         }
       }
     }
@@ -40,7 +40,7 @@ Add to your `claude_desktop_config.json`:
         "sigrok": {
           "command": "docker",
           "args": [
-            "run", "-i", "--rm", "--privileged",
+            "run", "-i", "--rm", "--device=/dev/bus/usb",
             "-v", "/path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro",
             "ghcr.io/kenosinc/sigrok-mcp-server"
           ]
@@ -60,7 +60,7 @@ Add to your `claude_desktop_config.json`:
 === "With USB + firmware"
 
     ```bash
-    claude mcp add sigrok -- docker run -i --rm --privileged \
+    claude mcp add sigrok -- docker run -i --rm --device=/dev/bus/usb \
       -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro \
       ghcr.io/kenosinc/sigrok-mcp-server
     ```

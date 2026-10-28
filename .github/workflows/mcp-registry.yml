@@ -5,6 +5,17 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: read
+
+env:
+  # Pin mcp-publisher to a specific release and verify its checksum before
+  # running it under an OIDC token. Update both values together; checksums
+  # come from registry_<version>_checksums.txt on the release page.
+  MCP_PUBLISHER_VERSION: 1.8.6
+  MCP_PUBLISHER_SHA256_AMD64: 1fbe93fc0783c2394d8012c8d6e50a59e98cb2cc2d216264cc69f405d0e21340
+  MCP_PUBLISHER_SHA256_ARM64: 02de2856f47fb068859e8e813fe7ee13583069ea430e41744e82d386481a0828
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -13,29 +24,39 @@ jobs:
       contents: read
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803  # v6.1.0
 
       - name: Install mcp-publisher
         run: |
-          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          set -euo pipefail
           ARCH=$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')
-          BASE=https://github.com/modelcontextprotocol/registry/releases/latest/download
-          curl -L "${BASE}/mcp-publisher_${OS}_${ARCH}.tar.gz" | tar xz mcp-publisher
+          case "$ARCH" in
+            amd64) EXPECTED="$MCP_PUBLISHER_SHA256_AMD64" ;;
+            arm64) EXPECTED="$MCP_PUBLISHER_SHA256_ARM64" ;;
+            *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
+          esac
+          BASE="https://github.com/modelcontextprotocol/registry/releases/download/v${MCP_PUBLISHER_VERSION}"
+          curl -fsSL -o mcp-publisher.tar.gz "${BASE}/mcp-publisher_linux_${ARCH}.tar.gz"
+          echo "${EXPECTED}  mcp-publisher.tar.gz" | sha256sum -c -
+          tar xzf mcp-publisher.tar.gz mcp-publisher
+          rm -f mcp-publisher.tar.gz
 
       - name: Authenticate to MCP Registry
         run: ./mcp-publisher login github-oidc
 
-      - name: Set version from tag
+      - name: Set version and OCI image tag
+        env:
+          TAG_NAME: ${{ github.ref_name }}
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          jq --arg v "$VERSION" '.version = $v' server.json > server.tmp && mv server.tmp server.json
-
-      - name: Update OCI image tag
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          set -euo pipefail
+          if ! [[ "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.]+)?$ ]]; then
+            echo "refusing to publish from non-semver tag: $TAG_NAME" >&2
+            exit 1
+          fi
+          VERSION="${TAG_NAME#v}"
           IMAGE="ghcr.io/kenosinc/sigrok-mcp-server:${VERSION}"
-          jq --arg id "$IMAGE" \
-            '.packages[0].identifier = $id' \
+          jq --arg v "$VERSION" --arg id "$IMAGE" \
+            '.version = $v | .packages[0].identifier = $id' \
             server.json > server.tmp && mv server.tmp server.json
 
       - name: Publish to MCP Registry

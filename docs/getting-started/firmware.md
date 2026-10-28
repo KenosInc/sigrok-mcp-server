@@ -31,7 +31,7 @@ This reports which firmware directories exist and what files are present, helpin
 Mount your firmware directory into the container:
 
 ```bash
-docker run -i --rm --privileged \
+docker run -i --rm --device=/dev/bus/usb \
   -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro \
   sigrok-mcp-server
 ```

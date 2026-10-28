@@ -1,0 +1,15 @@
+# Keep the build context minimal: only go.mod/go.sum and the Go sources are
+# needed. This also keeps local secrets and VCS data out of the builder layer
+# and the GitHub Actions build cache.
+.git
+.github
+.devcontainer
+.claude
+docs
+site
+overrides
+mkdocs.yml
+*.env
+.env*
+coverage.out
+*.sr

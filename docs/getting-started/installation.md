@@ -54,8 +54,12 @@ docker run -i --rm -e SIGROK_TIMEOUT_SECONDS=60 ghcr.io/kenosinc/sigrok-mcp-serv
 To access USB-connected devices (logic analyzers, oscilloscopes, etc.) from inside the container:
 
 ```bash
-docker run -i --rm --privileged ghcr.io/kenosinc/sigrok-mcp-server
+docker run -i --rm --device=/dev/bus/usb ghcr.io/kenosinc/sigrok-mcp-server
 ```
 
-!!! warning
-    `--privileged` grants broad access to host devices. For production use, consider using `--device` to pass specific USB devices instead.
+!!! note
+    `--device=/dev/bus/usb` exposes only the USB bus. The container runs as root,
+    so no extra host udev rule is needed for most devices; if a device still
+    does not appear, pass it individually (`--device=/dev/bus/usb/001/005`) or,
+    as a last resort, use `--privileged` — but be aware that it grants the
+    container access to every host device and all capabilities.
