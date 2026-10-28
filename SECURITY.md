@@ -16,9 +16,10 @@ an LLM. Tool calls originate from the model, so a malicious or confused prompt
 responses) can translate into commands sent to real hardware. Treat the MCP
 client, the model, and anything the model reads as untrusted input.
 
-All tool arguments are validated with allow-list regexes before they reach
-`sigrok-cli` (see `internal/tools/handlers.go`), and `sigrok-cli` is launched
-with an argument vector, never through a shell.
+All tool arguments are validated before they reach `sigrok-cli` (see
+`internal/tools/handlers.go`): string arguments against allow-list regexes,
+numeric arguments as finite, non-negative numbers within fixed bounds.
+`sigrok-cli` is launched with an argument vector, never through a shell.
 
 Prefer the least-privileged container configuration documented in the README
 (`--device=/dev/bus/usb` rather than `--privileged`).

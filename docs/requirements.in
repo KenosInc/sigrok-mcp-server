@@ -1,0 +1,3 @@
+# Documentation toolchain. Regenerate the hash-pinned lock with:
+#   uv pip compile --generate-hashes --python-version 3.12 docs/requirements.in -o docs/requirements.txt
+mkdocs-material==9.8.0

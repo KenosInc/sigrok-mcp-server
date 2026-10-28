@@ -21,11 +21,11 @@ jobs:
         with:
           python-version: "3.x"
 
-      # Pin the docs toolchain: this job holds `contents: write` (gh-pages
-      # push), so an unpinned pip install would run arbitrary upstream code
-      # with repository write access.
+      # This job holds `contents: write` (gh-pages push), so the whole docs
+      # toolchain is installed from a hash-pinned lock (docs/requirements.txt)
+      # and nothing unreviewed can run with repository write access.
       - name: Install MkDocs Material
-        run: pip install --no-cache-dir "mkdocs-material==9.8.0"
+        run: pip install --no-cache-dir --require-hashes -r docs/requirements.txt
 
       - name: Deploy to GitHub Pages
         run: mkdocs gh-deploy --force

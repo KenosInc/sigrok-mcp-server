@@ -11,5 +11,7 @@ overrides
 mkdocs.yml
 *.env
 .env*
+**/*.env
+**/.env*
 coverage.out
 *.sr

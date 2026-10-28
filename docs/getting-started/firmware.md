@@ -28,10 +28,15 @@ This reports which firmware directories exist and what files are present, helpin
 
 ## Providing firmware (Docker)
 
-Mount your firmware directory into the container:
+Mount your firmware directory into the container. Devices that load firmware
+(such as the Kingst LA2016) disconnect and re-enumerate with a **new** USB
+device node after the upload; `--device=/dev/bus/usb` only grants the nodes
+that existed at container start, so the scan would fail afterwards. Bind-mount
+the USB bus and allow the USB character-device major (189) instead:
 
 ```bash
-docker run -i --rm --device=/dev/bus/usb \
+docker run -i --rm \
+  -v /dev/bus/usb:/dev/bus/usb --device-cgroup-rule='c 189:* rmw' \
   -v /path/to/sigrok-firmware:/usr/local/share/sigrok-firmware:ro \
   sigrok-mcp-server
 ```

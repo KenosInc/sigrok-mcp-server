@@ -7,6 +7,10 @@
 **Possible causes:**
 
 1. **USB not passed through (Docker):** Pass the USB bus with `--device=/dev/bus/usb` (prefer this over `--privileged`).
+   The device must be connected **before** the container starts — Docker grants device access at creation time, so an
+   analyzer plugged in (or re-plugged) afterwards stays invisible until the container is restarted. Devices that
+   re-enumerate after a firmware upload (e.g. Kingst LA2016) need the bind-mount form shown in the
+   [firmware guide](../getting-started/firmware.md).
 
     ```bash
     docker run -i --rm --device=/dev/bus/usb sigrok-mcp-server

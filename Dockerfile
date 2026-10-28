@@ -88,10 +88,11 @@ LABEL io.modelcontextprotocol.server.name="io.github.KenosInc/sigrok-mcp-server"
 RUN sigrok-cli --version \
     && sigrok-cli --list-supported | grep -q kingst
 
-# Captures written by capture_data land in the working directory. Give the
-# server a dedicated, mountable directory instead of the image root.
+# Captures written by capture_data land in the process working directory.
+# Give the server a dedicated, mountable directory instead of the image root.
+# SIGROK_WORKING_DIR is intentionally left unset so `docker run -w` (or the
+# env var) can still override it.
 WORKDIR /data
 VOLUME ["/data"]
-ENV SIGROK_WORKING_DIR=/data
 
 ENTRYPOINT ["sigrok-mcp-server"]
