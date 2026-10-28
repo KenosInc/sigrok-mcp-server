@@ -20,7 +20,7 @@ ARG LIBSIGROK_REF=0bc2487778e660f4d3116729b6f4aee2b1996bb0
 ARG LIBSIGROKDECODE_REF=71f451443029322d57376214c330b518efd84f88
 ARG SIGROK_CLI_REF=f44dd91347e7ac797cefc23162b9fcf0b7329f1f
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git gcc g++ make autoconf autoconf-archive automake libtool pkg-config \
+        ca-certificates git gcc g++ make autoconf autoconf-archive automake libtool pkg-config \
         libglib2.0-dev libzip-dev libusb-1.0-0-dev libftdi1-dev libhidapi-dev \
         libieee1284-3-dev libserialport-dev \
         python3-dev \

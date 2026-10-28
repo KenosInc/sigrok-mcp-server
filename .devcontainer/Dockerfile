@@ -12,7 +12,7 @@ ARG SIGROK_CLI_REF=f44dd91347e7ac797cefc23162b9fcf0b7329f1f
 # kingst-la2016 driver (added March 2020, unreleased). We build from git master.
 RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
     && apt-get -y install --no-install-recommends \
-        git gcc g++ make autoconf autoconf-archive automake libtool pkg-config \
+        ca-certificates git gcc g++ make autoconf autoconf-archive automake libtool pkg-config \
         libglib2.0-dev libzip-dev libusb-1.0-0-dev libftdi1-dev libhidapi-dev \
         libieee1284-3-dev libserialport-dev \
         python3-dev \

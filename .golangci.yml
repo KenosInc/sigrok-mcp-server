@@ -14,3 +14,10 @@ linters:
         # G204: sigrok-cli is launched with argv (no shell) and every
         # argument is validated by regex in internal/tools before use.
         - G204
+  exclusions:
+    rules:
+      # Test fixtures are read from fixed paths under testdata/.
+      - path: _test\.go
+        linters:
+          - gosec
+        text: G304
