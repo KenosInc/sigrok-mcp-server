@@ -60,7 +60,7 @@ RUN git init -q /tmp/sigrok-cli \
 # Uses pipefail so a curl failure is not masked by the pipe to sh.
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN curl -sSfL https://golangci-lint.run/install.sh \
-    | sh -s -- -b /usr/local/bin v2.8.0
+    | sh -s -- -b /usr/local/bin v2.15.0
 SHELL ["/bin/sh", "-c"]
 
 # Smoke-test: fail the build early if any tool is missing or broken
